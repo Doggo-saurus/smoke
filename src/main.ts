@@ -1,5 +1,5 @@
 import "./css/style.css";
-import OBR, { ItemFilter, Image, Shape, buildShape, Player } from "@owlbear-rodeo/sdk";
+import OBR, { ItemFilter, Image, Item, Shape, buildShape, Player } from "@owlbear-rodeo/sdk";
 import { sceneCache } from './utilities/globals';
 import { isBackgroundBorder, isBackgroundImage, isTokenWithVisionForUI, isVisionFog, isTrailingFog, isAnyFog } from './utilities/itemFilters';
 import { setupContextMenus, createMode, createTool, onSceneDataChange } from './tools/visionTool';
@@ -54,6 +54,10 @@ app.innerHTML = `
             <div>Convert from <i>Dynamic Fog</i></div>
             <div></div>
             <div><input type="button" id="convert_button" value="Convert"></div>
+
+            <div>Unlock Fog Backgrounds</div>
+            <div></div>
+            <div><input type="button" id="background_button" value="Unlock"></div>
 
             <div></div>
             <div></div>
@@ -150,6 +154,7 @@ const settingsButton = document.getElementById("settings_button")! as HTMLInputE
 const boundryOptions = document.getElementById("boundry_options")! as HTMLDivElement;
 const debugDiv = document.getElementById("debug_div")! as HTMLDivElement;
 const debugButton = document.getElementById("debug_button")! as HTMLDivElement;
+const backgroundButton = document.getElementById("background_button")! as HTMLDivElement;
 
 // Import
 const importButton = document.getElementById("import_button")! as HTMLInputElement;
@@ -260,6 +265,21 @@ async function setButtonHandler()
 
         debugDiv.style.display = debugDiv.style.display == 'none' ? 'grid' : 'none';
         await OBR.scene.setMetadata({[`${Constants.EXTENSIONID}/debug`]: debugDiv.style.display === 'grid' ? true : false});
+    }, false);
+    
+    backgroundButton.addEventListener("click", async (event: MouseEvent) => {
+        if (!event || !event.target) return;
+        const target = event.target as HTMLInputElement;
+
+        await OBR.scene.items.updateItems((item: Item) => {return item.layer == "FOG" && (item.metadata[`${Constants.EXTENSIONID}/isBackgroundMap`] === true) || item.name == 'Camp Forest'}, (items: Item[]) => {
+            for (let i = 0; i < items.length; i++) {
+                items[i].layer = "MAP";
+                items[i].disableHit = false;
+                items[i].locked = false;
+                items[i].visible = true;
+                delete items[i].metadata[`${Constants.EXTENSIONID}/isBackgroundMap`];
+            }
+        });
     }, false);
   
     fowColor.addEventListener("input", async (event: Event) => {

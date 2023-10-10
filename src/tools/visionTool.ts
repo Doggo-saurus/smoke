@@ -247,6 +247,38 @@ export async function setupContextMenus(): Promise<void>
         },
     });
 
+
+    await OBR.contextMenu.create({
+        id: `${Constants.EXTENSIONID}/toggle-fog-background`,
+        icons: [
+            {
+                icon: "/no-vision.svg",
+                label: "Convert Fog Background",
+                filter: {
+                    every: [{ key: "layer", value: "MAP" }],
+                },
+            },
+        ],
+        async onClick(ctx)
+        {
+            if (ctx.items.length > 0)
+            {
+
+                await OBR.scene.items.updateItems(ctx.items, (items: Item[]) => {
+                    for (let i = 0; i < items.length; i++) {
+                        console.log(items[i]);
+                        items[i].zIndex = 1;
+                        items[i].layer = "FOG";
+                        items[i].disableHit = true;
+                        items[i].locked = false;
+                        items[i].visible = false;
+                        items[i].metadata[`${Constants.EXTENSIONID}/isBackgroundMap`] = true;
+                    }
+                });
+            }
+        },
+    });    
+
 }
 
 export async function createTool(): Promise<void>
