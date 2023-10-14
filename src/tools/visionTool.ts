@@ -967,10 +967,14 @@ async function computeShadow(event: any)
 
     if (enableReuseFog) {
         await OBR.scene.local.updateItems([reuseFog[0].id], (items) => {
+            const playerSceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/playerSceneId`];
+
             let newPath = reuseNewFog.resolve();
             newPath.setFillType(PathKit.FillType.EVENODD);
             items[0].commands = newPath.toCmds();
             newPath.delete();
+
+            localStorage.setItem(`${Constants.EXTENSIONID}/fogCache/${playerSceneId}`, JSON.stringify(items[0].commands));
         });
         reuseNewFog.delete();
     }
@@ -1051,7 +1055,7 @@ async function computeShadow(event: any)
     // and for some reason this causes issues with some of the procedural code below IF you remove the await on the Promise.all.
     // However, per the above, if we simply just call them individually and dont await any of them, everything is fine.. and we get a bit more of reponsiveness in the UI
 
-    if (true) {
+    if (false) {
         OBR.scene.local.deleteItems(oldRings.map(fogItem => fogItem.id));
         OBR.scene.local.addItems(itemsToAdd.map(item => {
                 const path = buildPath().commands(item.cmds).locked(true).visible(item.visible).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: item.digest}).build();

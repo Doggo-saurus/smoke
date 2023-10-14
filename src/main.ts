@@ -1,5 +1,5 @@
 import "./css/style.css";
-import OBR, { ItemFilter, Image, Item, Shape, buildShape, Player } from "@owlbear-rodeo/sdk";
+import OBR, { ItemFilter, Image, Item, Shape, buildShape, buildPath, Player } from "@owlbear-rodeo/sdk";
 import { sceneCache } from './utilities/globals';
 import { isBackgroundBorder, isBackgroundImage, isTokenWithVisionForUI, isVisionFog, isTrailingFog, isAnyFog } from './utilities/itemFilters';
 import { setupContextMenus, createMode, createTool, onSceneDataChange } from './tools/visionTool';
@@ -624,6 +624,24 @@ async function initScene(playerRole: string): Promise<void>
         await OBR.scene.setMetadata({[`${Constants.EXTENSIONID}/autodetectEnabled`]: true});
     } else if (sceneCache.metadata[`${Constants.EXTENSIONID}/autodetectEnabled`] === false) {
         drawing = createBackgroundBorder();
+    }
+
+    if (sceneCache.metadata[`${Constants.EXTENSIONID}/playerSceneId`] === undefined) {
+        // this will vary on different clients - this is intentional, we use this to store things in localstorage and we want it different on each player
+        await OBR.scene.setMetadata({[`${Constants.EXTENSIONID}/playerSceneId`]: crypto.randomUUID()});
+    } else {
+        const playerSceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/playerSceneId`];
+        // do we have a surprise waiting in localstorage?
+        const sceneFogCache = localStorage.getItem(`${Constants.EXTENSIONID}/fogCache/${playerSceneId}`);
+        if (sceneFogCache !== null && sceneCache.metadata[`${Constants.EXTENSIONID}/persistenceEnabled`] === true) {
+            console.log('unfreezing');
+            const path = buildPath().commands(JSON.parse(sceneFogCache)).fillRule("nonzero").locked(true).visible(false).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: "reuse"}).build();
+
+            // set our fog zIndex to 3, otherwise it can sometimes draw over the top of manually created fog objects:
+            path.zIndex = 3;
+
+            await OBR.scene.local.addItems([path]);
+        }
     }
 
     if (playerRole == "GM")
