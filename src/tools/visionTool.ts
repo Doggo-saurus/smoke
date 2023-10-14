@@ -24,14 +24,14 @@ export async function setupContextMenus(): Promise<void>
                 icon: "/no-vision.svg",
                 label: "Enable Vision",
                 filter: {
-                    every: [{ key: "layer", value: "CHARACTER" }, { key: ["metadata", `${Constants.EXTENSIONID}/hasVision`], value: undefined }],
+                    every: [{ key: "layer", value: "CHARACTER", coordinator: "||" }, { key: "layer", value: "ATTACHMENT", coordinator: "&&" }, { key: ["metadata", `${Constants.EXTENSIONID}/hasVision`], value: undefined }],
                 },
             },
             {
                 icon: "/icon.svg",
                 label: "Disable Vision",
                 filter: {
-                    every: [{ key: "layer", value: "CHARACTER" }],
+                    every: [{ key: "layer", value: "CHARACTER", coordinator: "||" }, { key: "layer", value: "ATTACHMENT", coordinator: "||"}],
                 },
             },
         ],
@@ -84,11 +84,11 @@ export async function setupContextMenus(): Promise<void>
                     {
                         if (parentIds.includes(item.attachedTo))
                         {
-                            if (item.metadata[`${Constants.EXTENSIONID}/hasVision`] && item.layer == "CHARACTER")
+                            if (item.metadata[`${Constants.EXTENSIONID}/hasVision`] && (item.layer == "CHARACTER" || item.layer == "ATTACHMENT"))
                             {
                                 delete item.metadata[`${Constants.EXTENSIONID}/hasVision`];
                             }
-                            else if (item.layer == "CHARACTER")
+                            else if (item.layer == "CHARACTER" || item.layer == "ATTACHMENT")
                             {
                                 item.metadata[`${Constants.EXTENSIONID}/hasVision`] = true;
                                 if (item.metadata[`${Constants.EXTENSIONID}/visionRange`] === undefined)
@@ -1207,11 +1207,13 @@ export async function onSceneDataChange(forceUpdate?: boolean)
     // How much overhead is all this?
 
     const gmPlayers = sceneCache.players.filter(x => x.role == "GM");
-    const gmTokens = sceneCache.items.filter(item => item.layer == "CHARACTER" && gmPlayers.some(gm => item.createdUserId === gm.id)
+    const gmTokens = sceneCache.items.filter(item => (item.layer == "CHARACTER" || item.layer == "ATTACHMENT") && gmPlayers.some(gm => item.createdUserId === gm.id)
         && (item.metadata[`${Constants.EXTENSIONID}/hasVision`] || item.metadata[`${Constants.ARMINDOID}/hasVision`])
         && !item.metadata[`${Constants.EXTENSIONID}/visionBlind`]);
 
     const allTokensWithVision = (sceneCache.role == "GM") ? sceneCache.items.filter(isTokenWithVision) : sceneCache.items.filter(isTokenWithVisionIOwn).concat(gmTokens);
+
+    // if we're on the character layer, and we're not a torch, then we can see - otherwise we're a torch or attachment so we use the item's visibility:
     const tokensWithVision = allTokensWithVision.filter((item) => { return !isTorch(item) || item.visible === true; });
 
     const visionShapes = sceneCache.items.filter(isActiveVisionLine);
