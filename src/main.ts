@@ -626,15 +626,13 @@ async function initScene(playerRole: string): Promise<void>
         drawing = createBackgroundBorder();
     }
 
-    if (sceneCache.metadata[`${Constants.EXTENSIONID}/playerSceneId`] === undefined) {
-        // this will vary on different clients - this is intentional, we use this to store things in localstorage and we want it different on each player
-        await OBR.scene.setMetadata({[`${Constants.EXTENSIONID}/playerSceneId`]: crypto.randomUUID()});
+    if (sceneCache.metadata[`${Constants.EXTENSIONID}/sceneId`] === undefined) {
+        await OBR.scene.setMetadata({[`${Constants.EXTENSIONID}/sceneId`]: crypto.randomUUID()});
     } else {
-        const playerSceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/playerSceneId`];
-        // do we have a surprise waiting in localstorage?
-        const sceneFogCache = localStorage.getItem(`${Constants.EXTENSIONID}/fogCache/${playerSceneId}`);
+        const sceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/sceneId`];
+        const sceneFogCache = localStorage.getItem(`${Constants.EXTENSIONID}/fogCache/${sceneCache.userId}/${sceneId}`);
         if (sceneFogCache !== null && sceneCache.metadata[`${Constants.EXTENSIONID}/persistenceEnabled`] === true) {
-            console.log('unfreezing');
+            console.log('unfreezing fog from localStorage');
             const path = buildPath().commands(JSON.parse(sceneFogCache)).fillRule("nonzero").locked(true).visible(false).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: "reuse"}).build();
 
             // set our fog zIndex to 3, otherwise it can sometimes draw over the top of manually created fog objects:

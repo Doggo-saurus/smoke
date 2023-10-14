@@ -967,14 +967,14 @@ async function computeShadow(event: any)
 
     if (enableReuseFog) {
         await OBR.scene.local.updateItems([reuseFog[0].id], (items) => {
-            const playerSceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/playerSceneId`];
+            const sceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/sceneId`];
 
             let newPath = reuseNewFog.resolve();
             newPath.setFillType(PathKit.FillType.EVENODD);
             items[0].commands = newPath.toCmds();
             newPath.delete();
 
-            localStorage.setItem(`${Constants.EXTENSIONID}/fogCache/${playerSceneId}`, JSON.stringify(items[0].commands));
+            localStorage.setItem(`${Constants.EXTENSIONID}/fogCache/${sceneCache.userId}/${sceneId}`, JSON.stringify(items[0].commands));
         });
         reuseNewFog.delete();
     }
