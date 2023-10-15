@@ -51,6 +51,10 @@ app.innerHTML = `
             <div><input type="checkbox" id="fow_checkbox"></div>
             <div><input type="text" style="width: 90px;" maxlength="9" id="fow_color" value="#00000088"></div>
 
+            <div>Render Quality</div>
+            <div></div>
+            <div><select id="quality"><option value="fast">Fast</option><option value="accurate">Accurate</option></select></div>
+
             <div>Convert from <i>Dynamic Fog</i></div>
             <div></div>
             <div><input type="button" id="convert_button" value="Convert"></div>
@@ -148,6 +152,7 @@ const persistenceCheckbox = document.getElementById("persistence_checkbox")! as 
 const autodetectCheckbox = document.getElementById("autodetect_checkbox")! as HTMLInputElement;
 const fowCheckbox = document.getElementById("fow_checkbox")! as HTMLInputElement;
 const fowColor = document.getElementById("fow_color")! as HTMLInputElement;
+const qualityOption = document.getElementById("quality")! as HTMLSelectElement;
 const resetButton = document.getElementById("persistence_reset")! as HTMLInputElement;
 const convertButton = document.getElementById("convert_button")! as HTMLInputElement;
 const settingsButton = document.getElementById("settings_button")! as HTMLInputElement;
@@ -248,6 +253,13 @@ async function setButtonHandler()
         const target = event.target as HTMLInputElement;
 
         await OBR.scene.setMetadata({[`${Constants.EXTENSIONID}/fowEnabled`]: target.checked});
+    }, false);
+
+    qualityOption.addEventListener("change", async (event) => {
+        if (!event || !event.target) return;
+        const target = event.target as HTMLInputElement;
+
+        await OBR.scene.setMetadata({[`${Constants.EXTENSIONID}/quality`]: target.value});
     }, false);
     
     resetButton.addEventListener("click", async (event: MouseEvent) => {
@@ -400,6 +412,7 @@ function updateUI(items: Image[])
         fowCheckbox.checked = sceneCache.metadata[`${Constants.EXTENSIONID}/fowEnabled`] == true;
         fowColor.value = (sceneCache.metadata[`${Constants.EXTENSIONID}/fowColor`] ? sceneCache.metadata[`${Constants.EXTENSIONID}/fowColor`] : "#00000088") as string;
         debug = sceneCache.metadata[`${Constants.EXTENSIONID}/debug`] == true;
+        qualityOption.value = sceneCache.metadata[`${Constants.EXTENSIONID}/quality`] as string;
     }
 
     debugDiv.style.display = debug ? 'grid' : 'none';
@@ -632,13 +645,28 @@ async function initScene(playerRole: string): Promise<void>
         const sceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/sceneId`];
         const sceneFogCache = localStorage.getItem(`${Constants.EXTENSIONID}/fogCache/${sceneCache.userId}/${sceneId}`);
         if (sceneFogCache !== null && sceneCache.metadata[`${Constants.EXTENSIONID}/persistenceEnabled`] === true) {
-            console.log('unfreezing fog from localStorage');
-            const path = buildPath().commands(JSON.parse(sceneFogCache)).fillRule("nonzero").locked(true).visible(false).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: "reuse"}).build();
+            const savedPaths = JSON.parse(sceneFogCache);
+            console.log('unfreezing '+ savedPaths.length + ' fog paths from localStorage');
+            const loadPaths: Promise<void>[] = [];
+            for (let i = 0; i < savedPaths.length; i++) {
+                const path = buildPath()
+                                .commands(savedPaths[i].commands)
+                                .fillRule("nonzero")
+                                .locked(true)
+                                .visible(false)
+                                .fillColor('#000000')
+                                .strokeColor("#000000")
+                                .layer("FOG")
+                                .name("Fog of War")
+                                .metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: savedPaths[i].digest})
+                                .build();
 
-            // set our fog zIndex to 3, otherwise it can sometimes draw over the top of manually created fog objects:
-            path.zIndex = 3;
-
-            await OBR.scene.local.addItems([path]);
+                // set our fog zIndex to 3, otherwise it can sometimes draw over the top of manually created fog objects:
+                path.zIndex = 3;
+    
+                loadPaths.push(OBR.scene.local.addItems([path]));
+            }
+            await Promise.all(loadPaths);
         }
     }
 

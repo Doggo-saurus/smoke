@@ -888,8 +888,7 @@ async function computeShadow(event: any)
     // This... should just work.. the logic seems sound.
     // During testing I ran into issues joining the paths together where it seemed to create overlapping paths with the union that would end up cutting holes in the path instead of filling them.
     // I can no longer replicate it, but I had turned this code path on, got 2 tokens, and just move them around next to eachother after a fog refresh, and it soon glitched.
-
-    let enableReuseFog = persistenceEnabled && true;
+    let enableReuseFog = persistenceEnabled && sceneCache.metadata[`${Constants.EXTENSIONID}/quality`] != 'accurate';
     let reuseFog:Image[] = [];
     let reuseNewFog: any;
 
@@ -965,18 +964,20 @@ async function computeShadow(event: any)
         item.delete();
     }
 
+    const sceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/sceneId`];
     if (enableReuseFog) {
         await OBR.scene.local.updateItems([reuseFog[0].id], (items) => {
-            const sceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/sceneId`];
-
             let newPath = reuseNewFog.resolve();
             newPath.setFillType(PathKit.FillType.EVENODD);
             items[0].commands = newPath.toCmds();
             newPath.delete();
 
-            localStorage.setItem(`${Constants.EXTENSIONID}/fogCache/${sceneCache.userId}/${sceneId}`, JSON.stringify(items[0].commands));
+            localStorage.setItem(`${Constants.EXTENSIONID}/fogCache/${sceneCache.userId}/${sceneId}`, JSON.stringify([{digest: 'reuse', commands: items[0].commands}]));
         });
         reuseNewFog.delete();
+    } else if (persistenceEnabled) {
+        const saveFog = localItemCache.filter(isVisionFog);
+        localStorage.setItem(`${Constants.EXTENSIONID}/fogCache/${sceneCache.userId}/${sceneId}`, JSON.stringify(saveFog.map((item: any) => { return {digest: item.metadata[`${Constants.EXTENSIONID}/digest`], commands: item.commands}; })));
     }
 
     let currentFogPath: any;
