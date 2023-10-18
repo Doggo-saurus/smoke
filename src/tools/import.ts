@@ -1,4 +1,4 @@
-import OBR, { Image, buildCurve } from "@owlbear-rodeo/sdk";
+import OBR, { Image, buildCurve, Vector2 } from "@owlbear-rodeo/sdk";
 import { Constants } from "../utilities/constants";
 import { sceneCache } from '../utilities/globals';
 
@@ -82,7 +82,7 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
     let total_imported = 0;
 
     // i dont get it.. uvtt says resolution.pixels_per_grid, but it looks like it's in 72?
-    let uvttScale = 72; //importData.resolution.pixels_per_grid;
+    let uvttScale = importData.resolution.pixels_per_grid;
 
     // add doors in as walls for now..
     if (importData.portals && importData.portals.length) {
@@ -93,11 +93,17 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
     }
 
     // TODO: lots of duplicate code here. Can swap out the coord caluations only and end up with the same outcome.
-    for (var i = 0; i < importData.line_of_sight.length; i++) {
-        let sx = importData.line_of_sight[i][0].x * uvttScale, sy = importData.line_of_sight[i][0].y * uvttScale, ex = importData.line_of_sight[i][1].x * uvttScale, ey = importData.line_of_sight[i][1].y * uvttScale;
+    for (let i = 0; i < importData.line_of_sight.length; i++) {
+        const points: Vector2[] = [];
+        for (let j = 0; j < importData.line_of_sight[i].length - 1; j++) {
+            let sx = importData.line_of_sight[i][j].x * uvttScale, sy = importData.line_of_sight[i][j].y * uvttScale, ex = importData.line_of_sight[i][j+1].x * uvttScale, ey = importData.line_of_sight[i][j+1].y * uvttScale;
+            points.push({x: sx * dpiRatio + offset[0], y: sy * dpiRatio + offset[1]});
+            points.push({x: ex * dpiRatio + offset[0], y: ey * dpiRatio + offset[1]});
+        }
+
         const line = buildCurve()
         .tension(0)
-        .points([{x: sx * dpiRatio + offset[0], y: sy * dpiRatio + offset[1]}, {x: ex * dpiRatio + offset[0], y: ey * dpiRatio + offset[1]}])
+        .points(points)
         .fillColor("#000000")
         .fillOpacity(0)
         .layer("DRAWING")
