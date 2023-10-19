@@ -1,6 +1,7 @@
 import OBR, { Image, buildCurve, Vector2 } from "@owlbear-rodeo/sdk";
 import { Constants } from "../utilities/constants";
 import { sceneCache } from '../utilities/globals';
+import simplify from "simplify-js";
 
 export async function updateMaps(mapAlign: HTMLSelectElement) {
   const maps = await OBR.scene.items.getItems((item) => item.layer === "MAP");
@@ -79,7 +80,8 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
 
     const walls = [];
 
-    let total_imported = 0;
+    let total_imported = 0, total_points = 0;
+    let current_points = 0;
 
     // i dont get it.. uvtt says resolution.pixels_per_grid, but it looks like it's in 72?
     let uvttScale = importData.resolution.pixels_per_grid;
@@ -94,11 +96,21 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
 
     // TODO: lots of duplicate code here. Can swap out the coord caluations only and end up with the same outcome.
     for (let i = 0; i < importData.line_of_sight.length; i++) {
-        const points: Vector2[] = [];
+        let points: Vector2[] = [];
         for (let j = 0; j < importData.line_of_sight[i].length - 1; j++) {
             let sx = importData.line_of_sight[i][j].x * uvttScale, sy = importData.line_of_sight[i][j].y * uvttScale, ex = importData.line_of_sight[i][j+1].x * uvttScale, ey = importData.line_of_sight[i][j+1].y * uvttScale;
             points.push({x: sx * dpiRatio + offset[0], y: sy * dpiRatio + offset[1]});
             points.push({x: ex * dpiRatio + offset[0], y: ey * dpiRatio + offset[1]});
+            total_points++;
+            current_points++;
+        }
+
+        // Chonk
+        if (points.length > 128) {
+            let x = points.length;
+            // tolerance should be related to the image dpi?
+            points = simplify(points, 8, false);
+            console.log("points from " + x + " to " + points.length);
         }
 
         const line = buildCurve()
@@ -118,10 +130,11 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
 
         // Batch our add calls otherwise OBR is unhappy.
         // Is there a recommended way to do this?
-        if (walls.length > 50) {
+        if (current_points > 512 || walls.length > 64) {
             total_imported += walls.length;
             OBR.scene.items.addItems(walls);
             walls.length = 0;
+            current_points = 0;
         }
     }
 
@@ -130,7 +143,7 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
         OBR.scene.items.addItems(walls);
     }
 
-    errorElement.innerText = 'Finished importing '+ total_imported + ' walls!';
+    errorElement.innerText = 'Finished importing '+ total_imported + ' walls, '+ total_points + " points.";
 
 }
 
