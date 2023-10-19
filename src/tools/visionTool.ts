@@ -1,4 +1,4 @@
-import OBR, { buildPath, buildShape, Image, Item, Shape, Line, Curve, ItemFilter, Vector2, Math2, MathM } from "@owlbear-rodeo/sdk";
+import OBR, { buildPath, buildShape, Image, isImage, Item, Shape, Line, Curve, ItemFilter, Vector2, Math2, MathM } from "@owlbear-rodeo/sdk";
 import PathKitInit from "pathkit-wasm/bin/pathkit";
 import wasm from "pathkit-wasm/bin/pathkit.wasm?url";
 import { polygonMode } from "./visionPolygonMode";
@@ -586,7 +586,7 @@ async function computeShadow(event: any)
     const autodetectEnabled = sceneCache.metadata[`${Constants.EXTENSIONID}/autodetectEnabled`] === true;
     if (autodetectEnabled) {
         // draw a big box around all the maps
-        const maps:Image[] = await OBR.scene.items.getItems((item) => item.layer === "MAP");
+        const maps:Image[] = await OBR.scene.items.getItems((item) => item.layer === "MAP" && isImage(item));
 
         let mapbox = [];
         for (let map of maps) {
@@ -1148,7 +1148,7 @@ function updateDoors() {
 
 async function updateTokenVisibility(currentFogPath: any) {
     const toggleTokens: Image[] = [];
-    const tokens = sceneCache.items.filter(isAutohide);
+    const tokens = sceneCache.items.filter((item) => {isAutohide(item) && isImage(item)});
 
     // this might not be the right thing to do with complex paths.. union should be sufficient when we intersect later..
     currentFogPath.simplify();
