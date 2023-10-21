@@ -140,6 +140,10 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
         return;
     }
 
+    if (importData.resolution.map_origin !== undefined) {
+        offset[0] -= importData.resolution.map_origin.x * importData.resolution.pixels_per_grid;
+        offset[1] -= importData.resolution.map_origin.y * importData.resolution.pixels_per_grid;
+    }
     // add doors as regular walls for now..
     if (importData.portals && importData.portals.length) {
         for (let i = 0; i < importData.portals.length; i++) {
