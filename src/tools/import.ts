@@ -71,34 +71,20 @@ export async function importFog(importType: string, importData: any, importDpi: 
     }
 }
 
-function importUVTT(importData: any, dpiRatio: number, offset: number[], errorElement: HTMLDivElement) {
-
-    if (!importData.line_of_sight || importData.line_of_sight.length === 0) {
-        errorElement.innerText = 'No walls / los found';
-        return;
-    }
-
-    const walls = [];
-
+function importWalls(walls: Vector2[][], importDpi: number, dpiRatio: number, offset: number[], errorElement: HTMLDivElement) 
+{
     let total_imported = 0, total_points = 0;
     let current_points = 0;
 
-    // i dont get it.. uvtt says resolution.pixels_per_grid, but it looks like it's in 72?
-    let uvttScale = importData.resolution.pixels_per_grid;
-
-    // add doors in as walls for now..
-    if (importData.portals && importData.portals.length) {
-        for (let i = 0; i < importData.portals.length; i++) {
-            let door = importData.portals[i].bounds;
-            importData.line_of_sight.push(door);
-        }
-    }
+    const lines = [];
+console.log('offset', offset);
 
     // TODO: lots of duplicate code here. Can swap out the coord caluations only and end up with the same outcome.
-    for (let i = 0; i < importData.line_of_sight.length; i++) {
+    for (let i = 0; i < walls.length; i++) {
         let points: Vector2[] = [];
-        for (let j = 0; j < importData.line_of_sight[i].length - 1; j++) {
-            let sx = importData.line_of_sight[i][j].x * uvttScale, sy = importData.line_of_sight[i][j].y * uvttScale, ex = importData.line_of_sight[i][j+1].x * uvttScale, ey = importData.line_of_sight[i][j+1].y * uvttScale;
+
+        for (let j = 0; j < walls[i].length - 1; j++) {
+            let sx = walls[i][j].x * importDpi, sy = walls[i][j].y * importDpi, ex = walls[i][j+1].x * importDpi, ey = walls[i][j+1].y * importDpi;
             points.push({x: sx * dpiRatio + offset[0], y: sy * dpiRatio + offset[1]});
             points.push({x: ex * dpiRatio + offset[0], y: ey * dpiRatio + offset[1]});
             total_points++;
@@ -108,43 +94,62 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
         // Chonk
         if (points.length > 128) {
             let x = points.length;
-            // tolerance should be related to the image dpi?
-            points = simplify(points, 8, false);
-            console.log("points from " + x + " to " + points.length);
+            // tolerance should be related to the image dpi
+            points = simplify(points, importDpi / 16, false);
+            console.log("simplified points from " + x + " to " + points.length);
         }
 
-        const line = buildCurve()
-        .tension(0)
-        .points(points)
-        .fillColor("#000000")
-        .fillOpacity(0)
-        .layer("DRAWING")
-        .name("Vision Line (Line)")
-        .closed(false)
-        .build();
+        for (let chunk = 0; chunk < points.length; chunk += 256) {
+            const line = buildCurve()
+            .tension(0)
+            .points(points.slice(chunk > 0 ? chunk - 1 : 0, chunk + 256))
+            .fillColor("#000000")
+            .fillOpacity(0)
+            .layer("DRAWING")
+            .name("Vision Line (Line)")
+            .closed(false)
+            .build();
 
-        line.visible = false;
-        line.metadata[`${Constants.EXTENSIONID}/isVisionLine`] = true;
+            line.visible = false;
+            line.metadata[`${Constants.EXTENSIONID}/isVisionLine`] = true;
 
-        walls.push(line);
+            lines.push(line);
+        }
 
         // Batch our add calls otherwise OBR is unhappy.
         // Is there a recommended way to do this?
-        if (current_points > 512 || walls.length > 64) {
-            total_imported += walls.length;
-            OBR.scene.items.addItems(walls);
-            walls.length = 0;
+        if (current_points > 512 || lines.length > 64) {
+            total_imported += lines.length;
+            OBR.scene.items.addItems(lines);
+            lines.length = 0;
             current_points = 0;
         }
     }
 
-    if (walls.length > 0) {
-        total_imported += walls.length;
-        OBR.scene.items.addItems(walls);
+    if (lines.length > 0) {
+        total_imported += lines.length;
+        OBR.scene.items.addItems(lines);
     }
 
     errorElement.innerText = 'Finished importing '+ total_imported + ' walls, '+ total_points + " points.";
+}
 
+function importUVTT(importData: any, dpiRatio: number, offset: number[], errorElement: HTMLDivElement) {
+
+    if (!importData.line_of_sight || importData.line_of_sight.length === 0) {
+        errorElement.innerText = 'No walls / los found';
+        return;
+    }
+
+    // add doors as regular walls for now..
+    if (importData.portals && importData.portals.length) {
+        for (let i = 0; i < importData.portals.length; i++) {
+            let door = importData.portals[i].bounds;
+            importData.line_of_sight.push(door);
+        }
+    }
+
+    importWalls(importData.line_of_sight, importData.resolution.pixels_per_grid, dpiRatio, offset, errorElement);
 }
 
 function importFoundry(importData: any, dpiRatio: number, offset: number[], errorElement: HTMLDivElement) {
@@ -154,41 +159,11 @@ function importFoundry(importData: any, dpiRatio: number, offset: number[], erro
         return;
     }
 
-    //let left = map.position.x - (dpiRatio * map.grid.offset.x), top = map.position.y - (dpiRatio * map.grid.offset.y);
-
-    const walls = [];
-
-    let total_imported = 0;
+    const walls: Vector2[][] = [];
 
     for (var i = 0; i < importData.walls.length; i++) {
-        const line = buildCurve()
-        .tension(0)
-        .points([{x: importData.walls[i].c[0]*dpiRatio + offset[0], y: importData.walls[i].c[1]*dpiRatio + offset[1]}, {x:importData.walls[i].c[2]*dpiRatio + offset[0],y:importData.walls[i].c[3]*dpiRatio + offset[1]}])
-        .fillColor("#000000")
-        .fillOpacity(0)
-        .layer("DRAWING")
-        .name("Vision Line (Line)")
-        .closed(false)
-        .build();
-
-        line.visible = false;
-        line.metadata[`${Constants.EXTENSIONID}/isVisionLine`] = true;
-
-        walls.push(line);
-
-        // Batch our add calls otherwise OBR is unhappy.
-        // Is there a recommended way to do this?
-        if (walls.length > 50) {
-            total_imported += walls.length;
-            OBR.scene.items.addItems(walls);
-            walls.length = 0;
-        }
+        walls.push([{x: importData.walls[i].c[0], y: importData.walls[i].c[1]}, {x: importData.walls[i].c[2], y: importData.walls[i].c[3]}])
     }
 
-    if (walls.length > 0) {
-        total_imported += walls.length;
-        OBR.scene.items.addItems(walls);
-    }
-
-    errorElement.innerText = 'Finished importing '+ total_imported + ' walls!';
+    importWalls(walls, 1, dpiRatio, offset, errorElement);
 };
