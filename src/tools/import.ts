@@ -92,7 +92,8 @@ function importWalls(walls: Vector2[][], importDpi: number, dpiRatio: number, of
         if (points.length > 128) {
             let x = points.length;
             // tolerance should be related to the image dpi
-            points = simplify(points, importDpi / 16, false);
+            const factor = 8;//importDpi / 16;
+            points = simplify(points, factor, false);
             console.log("simplified points from " + x + " to " + points.length);
         }
 
@@ -144,6 +145,7 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
         offset[0] -= importData.resolution.map_origin.x * importData.resolution.pixels_per_grid;
         offset[1] -= importData.resolution.map_origin.y * importData.resolution.pixels_per_grid;
     }
+
     // add doors as regular walls for now..
     if (importData.portals && importData.portals.length) {
         for (let i = 0; i < importData.portals.length; i++) {

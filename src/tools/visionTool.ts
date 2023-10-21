@@ -404,6 +404,7 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
     let lineCounter = 0, skipCounter = 0;
     let size = [width, height];
     const gmIds = sceneCache.players.filter(x => x.role == "GM");
+    const useOptimisations = sceneCache.metadata[`${Constants.EXTENSIONID}/quality`] != 'accurate';
 
     for (const token of tokensWithVision)
     {
@@ -411,13 +412,34 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
         const gmToken = gmIds.some(x => x.id == token.createdUserId);
         if ((!myToken && sceneCache.role !== "GM") && !gmToken) continue;
 
+        const visionRangeMeta = token.metadata[`${Constants.EXTENSIONID}/visionRange`];
+
         const cacheResult = playerShadowCache.getValue(token.id);
         polygons.push([]);
-        if (cacheResult !== undefined && comparePosition(cacheResult.player.position, token.position))
+        if (cacheResult !== undefined && comparePosition(cacheResult.player.position, token.position) && cacheResult.player.metadata[`${Constants.EXTENSIONID}/visionRange`] === visionRangeMeta)
+        //if (cacheResult !== undefined && comparePosition(cacheResult.player.position, token.position))
         {
             continue; // The result is cached and will be used later, no need to do work
         }
 
+        // if vision range isnt unlimited, intersect it with a circle:
+        let visionRange = 1000 * sceneCache.gridDpi;
+        if (visionRangeMeta) {
+            visionRange = sceneCache.gridDpi * ((visionRangeMeta) / sceneCache.gridScale + .5);
+        }
+/*
+        const lightLOS = buildShape()
+        .strokeColor('#ff0000')
+        .fillOpacity(1)
+        .position({ x: token.position.x, y: token.position.y })
+        .width(visionRange*2)
+        .height(visionRange*2)
+        .shapeType("CIRCLE")
+        .metadata({ [`${Constants.EXTENSIONID}/isIndicatorRing`]: true })
+        .build();
+
+        OBR.scene.local.addItems([lightLOS]);
+*/
         for (const line of visionLines)
         {
             const signedDistance = (token.position.x - line.startPosition.x) * (line.endPosition.y - line.startPosition.y) - (token.position.y - line.startPosition.y) * (line.endPosition.x - line.startPosition.x);
@@ -433,6 +455,30 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
             if ((lsx < offset[0] || lsy < offset[1] || lsx > offset[0] + size[0] || lsy > offset[1] + size[1]) || (lex < offset[0] || ley < offset[1] || lex > offset[0] + size[0] || ley > offset[1] + size[1])) {
                 skipCounter++;
                 continue;
+            }
+
+            // exclude lines based on distance.. this is faster than creating polys around everything, but is less accurate, particularly on long lines
+            if (true || useOptimisations) {
+                const segments: Vector2[] = [line.startPosition, line.endPosition];
+                const length = Math2.distance(line.startPosition, line.endPosition);
+                const segmentFactor = 3; // this causes load but increases accuracy, because we calculate maxSegments as a proportion of the visionRange divided by the segment factor to increase resolution
+                const maxSegments = Math.floor(length / (visionRange / segmentFactor));
+
+                for (let i = 1; i < maxSegments; i++) {
+                    segments.push(Math2.lerp(line.startPosition, line.endPosition, (i / maxSegments)));
+                }
+
+                let skip = true;
+                for (const segment of segments) {
+                    if (Math2.compare(token.position, segment, visionRange)) {
+                        skip = false;
+                    }
+                };
+
+                if (skip) {
+                    skipCounter++;
+                    continue;
+                }
             }
 
             lineCounter++;
@@ -671,7 +717,7 @@ async function computeShadow(event: any)
     {
         const player = tokensWithVision[j];
         let cacheResult = playerShadowCache.getValue(player.id);
-        if (cacheResult !== undefined && comparePosition(cacheResult.player.position, player.position))
+        if (cacheResult !== undefined && comparePosition(cacheResult.player.position, player.position) && cacheResult.player.metadata[`${Constants.EXTENSIONID}/visionRange`] === player.metadata[`${Constants.EXTENSIONID}/visionRange`])
         {
             // The value is cached, use it
             itemsPerPlayer[j] = cacheResult.shadowPath.copy();
@@ -910,7 +956,7 @@ async function computeShadow(event: any)
         if (reuseFog.length === 0) {
             // Create a new visionFog item with an empty path, so we can add to it.
             // Note that the digest is forced, which avoids the object being reused by the deduplication code.
-            const path = buildPath().commands([]).fillRule("nonzero").locked(true).visible(false).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: "reuse"}).build();
+            const path = buildPath().commands([]).fillRule("evenodd").locked(true).visible(false).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: "reuse"}).build();
 
             // set our fog zIndex to 3, otherwise it can sometimes draw over the top of manually created fog objects:
             path.zIndex = 3;
@@ -974,14 +1020,17 @@ async function computeShadow(event: any)
 
     const sceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/sceneId`];
     if (enableReuseFog) {
-        await OBR.scene.local.updateItems([reuseFog[0].id], (items) => {
-            let newPath = reuseNewFog.resolve();
-            newPath.setFillType(PathKit.FillType.EVENODD);
-            items[0].commands = newPath.toCmds();
-            newPath.delete();
+        const newPath = reuseNewFog.resolve();
+        newPath.setFillType(PathKit.FillType.EVENODD);
 
-            localStorage.setItem(`${Constants.EXTENSIONID}/fogCache/${sceneCache.userId}/${sceneId}`, JSON.stringify([{digest: 'reuse', commands: items[0].commands}]));
+        const commands = newPath.toCmds();
+
+        await OBR.scene.local.updateItems([reuseFog[0].id], (items) => {
+            items[0].commands = commands;
         });
+
+        localStorage.setItem(`${Constants.EXTENSIONID}/fogCache/${sceneCache.userId}/${sceneId}`, JSON.stringify([{digest: 'reuse', commands: commands}]));
+        newPath.delete();
         reuseNewFog.delete();
     } else if (persistenceEnabled) {
         const saveFog = localItemCache.filter(isVisionFog);
@@ -1016,6 +1065,7 @@ async function computeShadow(event: any)
             fowOpacity = Number.parseInt(fowColor.substring(7), 16) / 255;
             fowColor = fowColor.substring(0, 7);
         }
+
         const trailingFog = buildPath()
             .commands(trailingFogRect.toCmds())
             .locked(true)
@@ -1065,8 +1115,10 @@ async function computeShadow(event: any)
     // However, per the above, if we simply just call them individually and dont await any of them, everything is fine.. and we get a bit more of reponsiveness in the UI
 
     if (false) {
-        OBR.scene.local.deleteItems(oldRings.map(fogItem => fogItem.id));
-        OBR.scene.local.addItems(itemsToAdd.map(item => {
+        await Promise.all(promisesToExecute);
+
+        await OBR.scene.local.deleteItems(oldRings.map(fogItem => fogItem.id));
+        await OBR.scene.local.addItems(itemsToAdd.map(item => {
                 const path = buildPath().commands(item.cmds).locked(true).visible(item.visible).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: item.digest}).build();
                 path.zIndex = item.zIndex;
                 return path;

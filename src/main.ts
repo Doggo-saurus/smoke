@@ -653,7 +653,7 @@ async function initScene(playerRole: string): Promise<void>
             for (let i = 0; i < savedPaths.length; i++) {
                 const path = buildPath()
                                 .commands(savedPaths[i].commands)
-                                .fillRule("nonzero")
+                                .fillRule("evenodd")
                                 .locked(true)
                                 .visible(false)
                                 .fillColor('#000000')
@@ -809,6 +809,9 @@ OBR.onReady(async () =>
             if (metadata[`${Constants.EXTENSIONID}/forceReset`] === true) {
                 const fogItems = await OBR.scene.local.getItems(isAnyFog as ItemFilter<Image>);
                 OBR.scene.local.deleteItems(fogItems.map((item) => { return item.id; }));
+                
+                const sceneId = sceneCache.metadata[`${Constants.EXTENSIONID}/sceneId`];                
+                localStorage.removeItem(`${Constants.EXTENSIONID}/fogCache/${sceneCache.userId}/${sceneId}`);
 
                 // Force an update:
                 onSceneDataChange(true);
