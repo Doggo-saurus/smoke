@@ -73,13 +73,11 @@ export async function importFog(importType: string, importData: any, importDpi: 
 
 function importWalls(walls: Vector2[][], importDpi: number, dpiRatio: number, offset: number[], errorElement: HTMLDivElement) 
 {
-    let total_imported = 0, total_points = 0;
-    let current_points = 0;
+    let totalImported = 0, totalPoints = 0;
+    let currentPoints = 0;
 
     const lines = [];
-console.log('offset', offset);
 
-    // TODO: lots of duplicate code here. Can swap out the coord caluations only and end up with the same outcome.
     for (let i = 0; i < walls.length; i++) {
         let points: Vector2[] = [];
 
@@ -87,8 +85,7 @@ console.log('offset', offset);
             let sx = walls[i][j].x * importDpi, sy = walls[i][j].y * importDpi, ex = walls[i][j+1].x * importDpi, ey = walls[i][j+1].y * importDpi;
             points.push({x: sx * dpiRatio + offset[0], y: sy * dpiRatio + offset[1]});
             points.push({x: ex * dpiRatio + offset[0], y: ey * dpiRatio + offset[1]});
-            total_points++;
-            current_points++;
+            totalPoints++;
         }
 
         // Chonk
@@ -100,38 +97,40 @@ console.log('offset', offset);
         }
 
         for (let chunk = 0; chunk < points.length; chunk += 256) {
+            const chunkPoints = points.slice(chunk > 0 ? chunk - 1 : 0, chunk + 256);
             const line = buildCurve()
-            .tension(0)
-            .points(points.slice(chunk > 0 ? chunk - 1 : 0, chunk + 256))
-            .fillColor("#000000")
-            .fillOpacity(0)
-            .layer("DRAWING")
-            .name("Vision Line (Line)")
-            .closed(false)
-            .build();
+                        .tension(0)
+                        .points(chunkPoints)
+                        .fillColor("#000000")
+                        .fillOpacity(0)
+                        .layer("DRAWING")
+                        .name("Vision Line (Line)")
+                        .closed(false)
+                        .build();
 
             line.visible = false;
             line.metadata[`${Constants.EXTENSIONID}/isVisionLine`] = true;
 
             lines.push(line);
-        }
+            currentPoints += chunkPoints.length;
 
-        // Batch our add calls otherwise OBR is unhappy.
-        // Is there a recommended way to do this?
-        if (current_points > 512 || lines.length > 64) {
-            total_imported += lines.length;
-            OBR.scene.items.addItems(lines);
-            lines.length = 0;
-            current_points = 0;
+            // Batch our add calls otherwise OBR is unhappy.
+            // Is there a recommended way to do this?
+            if (currentPoints > 512 || lines.length > 64) {
+                totalImported += lines.length;
+                OBR.scene.items.addItems(lines);
+                lines.length = 0;
+                currentPoints = 0;
+            }
         }
     }
 
     if (lines.length > 0) {
-        total_imported += lines.length;
+        totalImported += lines.length;
         OBR.scene.items.addItems(lines);
     }
 
-    errorElement.innerText = 'Finished importing '+ total_imported + ' walls, '+ total_points + " points.";
+    errorElement.innerText = 'Finished importing '+ totalImported + ' walls, '+ totalPoints + " points.";
 }
 
 function importUVTT(importData: any, dpiRatio: number, offset: number[], errorElement: HTMLDivElement) {
