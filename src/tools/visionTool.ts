@@ -13,6 +13,55 @@ import { Constants } from "../utilities/constants";
 // We no longer need this for torch LOS calculations
 // import findPathIntersections from 'path-intersection';
 
+export async function setupAutohideMenus(show: boolean): Promise<void>
+{
+    if (show) {
+        await OBR.contextMenu.create({
+            id: `${Constants.EXTENSIONID}/toggle-autohide-menu`,
+            icons: [
+                {
+                    icon: "/autohide-off.svg",
+                    label: "Enable Autohide",
+                    filter: {
+                        every: [{ key: "layer", value: "CHARACTER" }, { key: ["metadata", `${Constants.EXTENSIONID}/hasAutohide`], value: undefined }],
+                        roles: ["GM"]
+                    },
+                },
+                {
+                    icon: "/autohide-on.svg",
+                    label: "Disable Autohide",
+                    filter: {
+                        every: [{ key: "layer", value: "CHARACTER" }],
+                        roles: ["GM"]
+                    },
+                },
+            ],
+            async onClick(ctx)
+            {
+                const enableFog = ctx.items.every(
+                    (item) => item.metadata[`${Constants.EXTENSIONID}/hasAutohide`] === undefined);
+
+                await OBR.scene.items.updateItems(ctx.items, items =>
+                {
+                    for (const item of items)
+                    {
+                        if (!enableFog)
+                        {
+                            delete item.metadata[`${Constants.EXTENSIONID}/hasAutohide`];
+                        }
+                        else
+                        {
+                            item.metadata[`${Constants.EXTENSIONID}/hasAutohide`] = true;
+                        }
+                    }
+                });
+            },
+        });
+    } else {
+        await OBR.contextMenu.remove(`${Constants.EXTENSIONID}/toggle-autohide-menu`);
+    }
+}
+
 export async function setupContextMenus(): Promise<void>
 {
     // This context menu appears on character tokens and determines whether they
@@ -206,47 +255,6 @@ export async function setupContextMenus(): Promise<void>
             });
         }
     });
-
-    await OBR.contextMenu.create({
-        id: `${Constants.EXTENSIONID}/toggle-autohide-menu`,
-        icons: [
-            {
-                icon: "/autohide-off.svg",
-                label: "Enable Autohide",
-                filter: {
-                    every: [{ key: "layer", value: "CHARACTER" }, { key: ["metadata", `${Constants.EXTENSIONID}/hasAutohide`], value: undefined }],
-                },
-            },
-            {
-                icon: "/autohide-on.svg",
-                label: "Disable Autohide",
-                filter: {
-                    every: [{ key: "layer", value: "CHARACTER" }],
-                },
-            },
-        ],
-        async onClick(ctx)
-        {
-            const enableFog = ctx.items.every(
-                (item) => item.metadata[`${Constants.EXTENSIONID}/hasAutohide`] === undefined);
-
-            await OBR.scene.items.updateItems(ctx.items, items =>
-            {
-                for (const item of items)
-                {
-                    if (!enableFog)
-                    {
-                        delete item.metadata[`${Constants.EXTENSIONID}/hasAutohide`];
-                    }
-                    else
-                    {
-                        item.metadata[`${Constants.EXTENSIONID}/hasAutohide`] = true;
-                    }
-                }
-            });
-        },
-    });
-
 
     await OBR.contextMenu.create({
         id: `${Constants.EXTENSIONID}/toggle-fog-background`,
@@ -1148,7 +1156,7 @@ function updateDoors() {
 
 async function updateTokenVisibility(currentFogPath: any) {
     const toggleTokens: Image[] = [];
-    const tokens = sceneCache.items.filter((item) => {isAutohide(item) && isImage(item)});
+    const tokens = sceneCache.items.filter((item) => isAutohide(item) && isImage(item));
 
     // this might not be the right thing to do with complex paths.. union should be sufficient when we intersect later..
     currentFogPath.simplify();
