@@ -458,7 +458,7 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
             }
 
             // exclude lines based on distance.. this is faster than creating polys around everything, but is less accurate, particularly on long lines
-            if (true || useOptimisations) {
+            if (useOptimisations && isTorch(token)) {
                 const segments: Vector2[] = [line.startPosition, line.endPosition];
                 const length = Math2.distance(line.startPosition, line.endPosition);
                 const segmentFactor = 3; // this causes load but increases accuracy, because we calculate maxSegments as a proportion of the visionRange divided by the segment factor to increase resolution
