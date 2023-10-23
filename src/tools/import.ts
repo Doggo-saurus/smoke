@@ -1,7 +1,7 @@
 import OBR, { Image, buildCurve, Vector2 } from "@owlbear-rodeo/sdk";
 import { Constants } from "../utilities/constants";
 import { sceneCache } from '../utilities/globals';
-import { createLocalDoor } from "./visionTool";
+import { createLocalDoor } from "./doorTool";
 import simplify from "simplify-js";
 
 type ImportVector2 = Vector2 & {door: boolean};

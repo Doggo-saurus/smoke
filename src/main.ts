@@ -2,7 +2,8 @@ import "./css/style.css";
 import OBR, { ItemFilter, Image, Item, Shape, buildShape, buildPath, Player } from "@owlbear-rodeo/sdk";
 import { sceneCache } from './utilities/globals';
 import { isBackgroundBorder, isBackgroundImage, isTokenWithVisionForUI, isVisionFog, isTrailingFog, isAnyFog } from './utilities/itemFilters';
-import { setupContextMenus, setupAutohideMenus, createMode, createTool, onSceneDataChange, toggleDoor, initDoors } from './tools/visionTool';
+import { setupContextMenus, setupAutohideMenus, createMode, createTool, onSceneDataChange } from './tools/visionTool';
+import { toggleDoor, initDoors, setupDoorMenus } from './tools/doorTool';
 import { Constants } from "./utilities/constants";
 import { RunSpectre, SetupSpectreGM, UpdateSpectreTargets } from "./mystery";
 import { updateMaps, importFog } from "./tools/import";
@@ -421,6 +422,7 @@ function updateUI(items: Image[])
     message.style.display = playersWithVision.length > 0 ? "none" : "block";
 
     setupAutohideMenus(fowCheckbox.checked);
+    setupDoorMenus();
 
     const tokenTableEntries = document.getElementsByClassName("token-table-entry");
     const toRemove = [];
