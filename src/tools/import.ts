@@ -166,8 +166,9 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
     // add doors as regular walls for now..
     if (importData.portals && importData.portals.length) {
         for (let i = 0; i < importData.portals.length; i++) {
-            let door = importData.portals[i].bounds as ImportVector2;
-            door.door = true;
+            let door = importData.portals[i].bounds;
+            door[0].door = true;
+            door[1].door = true;
             importData.line_of_sight.push(door);
         }
     }
