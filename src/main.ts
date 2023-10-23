@@ -2,7 +2,7 @@ import "./css/style.css";
 import OBR, { ItemFilter, Image, Item, Shape, buildShape, buildPath, Player } from "@owlbear-rodeo/sdk";
 import { sceneCache } from './utilities/globals';
 import { isBackgroundBorder, isBackgroundImage, isTokenWithVisionForUI, isVisionFog, isTrailingFog, isAnyFog } from './utilities/itemFilters';
-import { setupContextMenus, setupAutohideMenus, createMode, createTool, onSceneDataChange } from './tools/visionTool';
+import { setupContextMenus, setupAutohideMenus, createMode, createTool, onSceneDataChange, toggleDoor, initDoors } from './tools/visionTool';
 import { Constants } from "./utilities/constants";
 import { RunSpectre, SetupSpectreGM, UpdateSpectreTargets } from "./mystery";
 import { updateMaps, importFog } from "./tools/import";
@@ -692,6 +692,8 @@ async function initScene(playerRole: string): Promise<void>
             });
         };
 
+        initDoors();
+
         //Create Whatsnew Button
         const whatsNewButton = document.getElementById("whatsnewbutton")!;
         whatsNewButton.onclick = async function ()
@@ -763,6 +765,11 @@ OBR.onReady(async () =>
                 } else {
                     token.classList.remove("token-table-selected");
                 }
+            }
+
+
+            if (player.selection !== undefined && player.selection.length === 1) {
+                toggleDoor(player.selection[0]);
             }
         });
 

@@ -1,7 +1,10 @@
 import OBR, { Image, buildCurve, Vector2 } from "@owlbear-rodeo/sdk";
 import { Constants } from "../utilities/constants";
 import { sceneCache } from '../utilities/globals';
+import { createLocalDoor } from "./visionTool";
 import simplify from "simplify-js";
+
+type ImportVector2 = Vector2 & {door: boolean};
 
 export async function updateMaps(mapAlign: HTMLSelectElement) {
   const maps = await OBR.scene.items.getItems((item) => item.layer === "MAP");
@@ -71,7 +74,7 @@ export async function importFog(importType: string, importData: any, importDpi: 
     }
 }
 
-function importWalls(walls: Vector2[][], importDpi: number, dpiRatio: number, offset: number[], errorElement: HTMLDivElement) 
+function importWalls(walls: ImportVector2[][], importDpi: number, dpiRatio: number, offset: number[], errorElement: HTMLDivElement) 
 {
     let totalImported = 0, totalPoints = 0;
     let currentPoints = 0;
@@ -80,12 +83,18 @@ function importWalls(walls: Vector2[][], importDpi: number, dpiRatio: number, of
 
     for (let i = 0; i < walls.length; i++) {
         let points: Vector2[] = [];
+        let door = false;
 
         for (let j = 0; j < walls[i].length - 1; j++) {
             let sx = walls[i][j].x * importDpi, sy = walls[i][j].y * importDpi, ex = walls[i][j+1].x * importDpi, ey = walls[i][j+1].y * importDpi;
             points.push({x: sx * dpiRatio + offset[0], y: sy * dpiRatio + offset[1]});
             points.push({x: ex * dpiRatio + offset[0], y: ey * dpiRatio + offset[1]});
             totalPoints++;
+
+            // if any part is a door, it's a door:
+            if (!door && walls[i][j].door) {
+                door = true;
+            }
         }
 
         // Chonk
@@ -111,6 +120,9 @@ function importWalls(walls: Vector2[][], importDpi: number, dpiRatio: number, of
 
             line.visible = false;
             line.metadata[`${Constants.EXTENSIONID}/isVisionLine`] = true;
+            if (door) {
+                line.metadata[`${Constants.EXTENSIONID}/isDoor`] = true;
+            }
 
             lines.push(line);
             currentPoints += chunkPoints.length;
@@ -120,6 +132,9 @@ function importWalls(walls: Vector2[][], importDpi: number, dpiRatio: number, of
             if (currentPoints > 512 || lines.length > 64) {
                 totalImported += lines.length;
                 OBR.scene.items.addItems(lines);
+                const doors = lines.filter((item) => item.metadata[`${Constants.EXTENSIONID}/isDoor`] === true);
+                createLocalDoor(doors);
+
                 lines.length = 0;
                 currentPoints = 0;
             }
@@ -129,6 +144,8 @@ function importWalls(walls: Vector2[][], importDpi: number, dpiRatio: number, of
     if (lines.length > 0) {
         totalImported += lines.length;
         OBR.scene.items.addItems(lines);
+        const doors = lines.filter((item) => item.metadata[`${Constants.EXTENSIONID}/isDoor`] === true);
+        createLocalDoor(doors);
     }
 
     errorElement.innerText = 'Finished importing '+ totalImported + ' walls, '+ totalPoints + " points.";
@@ -149,7 +166,8 @@ function importUVTT(importData: any, dpiRatio: number, offset: number[], errorEl
     // add doors as regular walls for now..
     if (importData.portals && importData.portals.length) {
         for (let i = 0; i < importData.portals.length; i++) {
-            let door = importData.portals[i].bounds;
+            let door = importData.portals[i].bounds as ImportVector2;
+            door.door = true;
             importData.line_of_sight.push(door);
         }
     }
@@ -164,10 +182,10 @@ function importFoundry(importData: any, dpiRatio: number, offset: number[], erro
         return;
     }
 
-    const walls: Vector2[][] = [];
+    const walls: ImportVector2[][] = [];
 
     for (var i = 0; i < importData.walls.length; i++) {
-        walls.push([{x: importData.walls[i].c[0], y: importData.walls[i].c[1]}, {x: importData.walls[i].c[2], y: importData.walls[i].c[3]}])
+        walls.push([{x: importData.walls[i].c[0], y: importData.walls[i].c[1], door: importData.walls[i].door ? true : false}, {x: importData.walls[i].c[2], y: importData.walls[i].c[3], door: importData.walls[i].door ? true : false}])
     }
 
     importWalls(walls, 1, dpiRatio, offset, errorElement);

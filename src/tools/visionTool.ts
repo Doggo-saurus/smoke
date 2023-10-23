@@ -1,4 +1,4 @@
-import OBR, { buildPath, buildShape, Image, isImage, Item, Shape, Line, Curve, ItemFilter, Vector2, Math2, MathM } from "@owlbear-rodeo/sdk";
+import OBR, { buildPath, buildShape, Image, isImage, Item, Shape, Line, Curve, isCurve, Path, isPath, ItemFilter, Vector2, Math2, MathM } from "@owlbear-rodeo/sdk";
 import PathKitInit from "pathkit-wasm/bin/pathkit";
 import wasm from "pathkit-wasm/bin/pathkit.wasm?url";
 import { polygonMode } from "./visionPolygonMode";
@@ -287,7 +287,153 @@ export async function setupContextMenus(): Promise<void>
         },
     });    
 
+    await OBR.contextMenu.create({
+        id: `${Constants.EXTENSIONID}/toggle-door`,
+        icons: [
+            {
+                icon: "/opendoor.svg",
+                label: "Enable Door",
+                filter: {
+                    every: [{ key: "layer", value: "DRAWING" }, { key: ["metadata", `${Constants.EXTENSIONID}/isDoor`], value: undefined }, { key: ["metadata", `${Constants.EXTENSIONID}/doorId`], value: undefined}],
+                    roles: ["GM"]
+                },
+            },
+            {
+                icon: "/closedoor.svg",
+                label: "Disable Door",
+                filter: {
+                    every: [{ key: "layer", value: "DRAWING" }, { key: ["metadata", `${Constants.EXTENSIONID}/doorId`], value: undefined}],
+                    roles: ["GM"]
+                },
+            },
+        ],
+        async onClick(ctx)
+        {
+            const enableFog = ctx.items.every(
+                (item) => item.metadata[`${Constants.EXTENSIONID}/isDoor`] === undefined);
+
+            await OBR.scene.items.updateItems(ctx.items, items =>
+            {
+                for (const item of items)
+                {
+                    if (!enableFog)
+                    {
+                        delete item.metadata[`${Constants.EXTENSIONID}/isDoor`];
+                    }
+                    else
+                    {
+                        item.metadata[`${Constants.EXTENSIONID}/isDoor`] = true;
+                    }
+                }
+            });
+
+            if (!enableFog) {
+                await removeLocalDoor(ctx.items);
+            } else {
+                await createLocalDoor(ctx.items);
+            }
+        },
+    });
 }
+
+async function removeLocalDoor(items: Item[]) {
+    const doors = await OBR.scene.local.getItems((item) => item.metadata[`${Constants.EXTENSIONID}/doorId`] !== undefined);
+    const deleteDoors = [];
+    for (let door of doors) {
+        let deleteDoor = false;
+        for (const item of items) {
+            if (door.metadata[`${Constants.EXTENSIONID}/doorId`] == item.id) {
+                deleteDoor = true;
+            }
+        }
+        if (deleteDoor) {
+            deleteDoors.push(door.id);
+        }
+    }
+
+    await OBR.scene.local.deleteItems(deleteDoors);
+}
+
+// https://www.svgrepo.com/svg/1882/closed-filled-rectangular-door
+export function getDoorPath(open: boolean) {
+    var openImage, closeImage;
+
+    if (!openImage) {
+        const openPath = PathKit.FromSVGString("M 184.646,0 V 21.72 H 99.704 v 433.358 h 31.403 V 53.123 h 53.539 V 492.5 l 208.15,-37.422 V 393.843 37.5 Z m 38.292,263.129 c -6.997,0 -12.67,-7.381 -12.67,-16.486 0,-9.104 5.673,-16.485 12.67,-16.485 6.997,0 12.67,7.381 12.67,16.485 0,9.105 -5.673,16.486 -12.67,16.486 z");
+        openPath.transform(1, 0, -250,
+            0, 1, -250,
+            0, 0, 1);
+
+        openImage = openPath.toCmds();
+
+        const closePath = PathKit.FromSVGString("m 71.553,0 v 478.085 l 335.561,0.581 V 0 Z m 31.556,446.583 V 31.558 H 375.554 V 88.371 H 364.773 V 42.086 H 113.893 V 436.554 H 364.774 V 390.27 h 10.781 v 56.785 z M 364.773,137.459 h 10.781 V 341.18 H 364.773 Z M 165.787,239.32 c 0,9.148 -7.418,16.566 -16.568,16.566 -9.15,0 -16.568,-7.418 -16.568,-16.566 0,-9.15 7.418,-16.568 16.568,-16.568 9.15,0 16.568,7.418 16.568,16.568 z");
+        closePath.transform(1, 0, -250,
+            0, 1, -250,
+            0, 0, 1);    
+        closeImage = closePath.toCmds();
+    }
+
+    return open ? openImage : closeImage;
+}
+
+export async function createLocalDoor(items: Item[]) {
+    const doors: Item[] = [];
+    const localDoorItems = await OBR.scene.local.getItems((item) => item.metadata[`${Constants.EXTENSIONID}/doorId`] !== undefined);
+    for (const item of items as Curve[]) {
+        if (!isCurve(item)) continue;
+        if (localDoorItems.some((item_filter) => item_filter.metadata[`${Constants.EXTENSIONID}/doorId`] === item.id)) continue;
+
+        const shapeTransform = MathM.fromItem(item);
+        const points: Vector2[] = [];
+        for (let i = 0; i < item.points.length; i++) {
+            const localTransform = MathM.fromPosition(item.points[i]);
+            points.push(MathM.decompose(MathM.multiply(shapeTransform, localTransform)).position);
+        }
+        doors.push(buildPath().locked(true).commands(getDoorPath(item.metadata[`${Constants.EXTENSIONID}/disabled`] === true)).scale({x: 0.2, y: 0.2}).name("Door").position(Math2.centroid(points)).metadata({[`${Constants.EXTENSIONID}/doorId`]: item.id}).build());
+    }
+    OBR.scene.local.addItems(doors);
+}
+
+export async function toggleDoor(toggleDoorId: string) {
+    const localDoor = await OBR.scene.local.getItems((item) => item.id === toggleDoorId && item.metadata[`${Constants.EXTENSIONID}/doorId`] !== undefined);
+
+    if (localDoor.length === 1) {
+        const doorPathId = localDoor[0].metadata[`${Constants.EXTENSIONID}/doorId`];
+        const door = sceneCache.items.filter((item) => item.id === doorPathId);
+        let doorOpen = false;
+
+        // duplicated code from visionTool button
+        await OBR.scene.items.updateItems(door, (items) => {
+            const item = items[0];
+            if (item.metadata[`${Constants.EXTENSIONID}/isVisionLine`] && item.metadata[`${Constants.EXTENSIONID}/disabled`])
+            {
+                delete item.metadata[`${Constants.EXTENSIONID}/disabled`];
+                doorOpen = false;
+            }
+            else if (item.metadata[`${Constants.EXTENSIONID}/isVisionLine`])
+            {
+                item.metadata[`${Constants.EXTENSIONID}/disabled`] = true;
+                doorOpen = true;
+            }
+        });
+        
+        // Change the icon
+        await OBR.scene.local.updateItems([localDoor[0].id], (doors) => {
+            const door = doors[0] as Path;
+            if (isPath(door)) {
+                door.commands = getDoorPath(doorOpen);
+            }
+        });
+
+        await OBR.player.deselect([toggleDoorId]);
+    }
+}
+
+export async function initDoors() {
+    const doors = await OBR.scene.items.getItems((item) => item.metadata[`${Constants.EXTENSIONID}/isDoor`] === true);
+    createLocalDoor(doors);
+}
+
 
 export async function createTool(): Promise<void>
 {
@@ -406,6 +552,50 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
     const gmIds = sceneCache.players.filter(x => x.role == "GM");
     const useOptimisations = sceneCache.metadata[`${Constants.EXTENSIONID}/quality`] != 'accurate';
 
+    /* 
+    still doesnt work, it's not the torches themselves that need the vis calculation, it's the intersection with the torch's view by the player token,
+    whereby the player needs a view to infinity to be able to intersect what they can see with where the torch is..
+    the only way around this would be to detect lines that sit within a bounding box based on the torch and players positions?
+    */
+    const torchCount = tokensWithVision.filter(isTorch).length;
+/*
+    for (const token of tokensWithVision) {
+        if (isTorch(token)) {
+            torchCount++;
+            const visionRangeMeta = token.metadata[`${Constants.EXTENSIONID}/visionRange`];
+            let visionRange = 1000 * sceneCache.gridDpi;
+            if (visionRangeMeta) {
+                visionRange = sceneCache.gridDpi * ((visionRangeMeta) / sceneCache.gridScale + .5);
+            }
+
+            for (const line of visionLines)
+            {
+                const segments: Vector2[] = [line.startPosition, line.endPosition];
+                const length = Math2.distance(line.startPosition, line.endPosition);
+                const segmentFactor = 3; // this causes load but increases accuracy, because we calculate maxSegments as a proportion of the visionRange divided by the segment factor to increase resolution
+                const maxSegments = Math.floor(length / (visionRange / segmentFactor));
+
+                for (let i = 1; i < maxSegments; i++) {
+                    segments.push(Math2.lerp(line.startPosition, line.endPosition, (i / maxSegments)));
+                }
+
+                let skip = true;
+                for (const segment of segments) {
+                    if (Math2.compare(token.position, segment, visionRange)) {
+                        skip = false;
+                    }
+                };
+
+                if (!skip) {
+                    line.nearTorch = true;
+                    console.log('near torch');
+                }
+            }
+        }
+    }
+*/
+
+
     for (const token of tokensWithVision)
     {
         const myToken = (sceneCache.userId === token.createdUserId);
@@ -458,7 +648,7 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
             }
 
             // exclude lines based on distance.. this is faster than creating polys around everything, but is less accurate, particularly on long lines
-            if (useOptimisations && isTorch(token)) {
+            if (useOptimisations && (torchCount === 0 || isTorch(token))) {
                 const segments: Vector2[] = [line.startPosition, line.endPosition];
                 const length = Math2.distance(line.startPosition, line.endPosition);
                 const segmentFactor = 3; // this causes load but increases accuracy, because we calculate maxSegments as a proportion of the visionRange divided by the segment factor to increase resolution
