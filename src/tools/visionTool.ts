@@ -1,4 +1,4 @@
-import OBR, { buildPath, buildShape, Image, isImage, Item, Shape, Line, Curve, isCurve, Path, isPath, ItemFilter, Vector2, Math2, MathM } from "@owlbear-rodeo/sdk";
+import OBR, { buildPath, buildShape, Image, isImage, Item, Shape, ItemFilter, Vector2, Math2, MathM } from "@owlbear-rodeo/sdk";
 import PathKitInit from "pathkit-wasm/bin/pathkit";
 import wasm from "pathkit-wasm/bin/pathkit.wasm?url";
 import { polygonMode } from "./visionPolygonMode";
@@ -11,7 +11,7 @@ import { isVisionFog, isActiveVisionLine, isTokenWithVision, isBackgroundBorder,
 import { Constants } from "../utilities/constants";
 
 // We no longer need this for torch LOS calculations
-// import findPathIntersections from 'path-intersection';
+import findPathIntersections from 'path-intersection';
 
 export async function setupAutohideMenus(show: boolean): Promise<void>
 {
@@ -400,7 +400,7 @@ function createObstructionLines(visionShapes: any): ObstructionLine[] {
 
 // Main fog visibility calculation occurs here.
 
-function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, width: number, height:number, offset: [number, number], scale: [number, number]): Polygon[][] {
+function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, width: number, height:number, offset: [number, number], scale: [number, number], playerFullLines: any): Polygon[][] {
     let polygons: Polygon[][] = [];
     let lineCounter = 0, skipCounter = 0;
     let size = [width, height];
@@ -461,10 +461,12 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
 
         const cacheResult = playerShadowCache.getValue(token.id);
         polygons.push([]);
+        playerFullLines.push([]);
+
         if (cacheResult !== undefined && comparePosition(cacheResult.player.position, token.position) && cacheResult.player.metadata[`${Constants.EXTENSIONID}/visionRange`] === visionRangeMeta)
         //if (cacheResult !== undefined && comparePosition(cacheResult.player.position, token.position))
         {
-            continue; // The result is cached and will be used later, no need to do work
+            //continue; // The result is cached and will be used later, no need to do work
         }
 
         // if vision range isnt unlimited, intersect it with a circle:
@@ -494,6 +496,8 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
                     continue;
             }
 
+            playerFullLines[playerFullLines.length - 1].push({start: line.startPosition, end: line.endPosition});
+
             // exclude any lines outside of the fog area
             // can pathkit do this better / faster?
             let lsx = line.startPosition.x, lsy = line.startPosition.y, lex = line.endPosition.x, ley = line.endPosition.y;
@@ -503,7 +507,7 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
             }
 
             // exclude lines based on distance.. this is faster than creating polys around everything, but is less accurate, particularly on long lines
-            if (useOptimisations && (torchCount === 0 || isTorch(token))) {
+            if (useOptimisations){// && (torchCount === 0 || isTorch(token))) {
                 const segments: Vector2[] = [line.startPosition, line.endPosition];
                 const length = Math2.distance(line.startPosition, line.endPosition);
                 const segmentFactor = 3; // this causes load but increases accuracy, because we calculate maxSegments as a proportion of the visionRange divided by the segment factor to increase resolution
@@ -634,7 +638,6 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
         "skip_counter": skipCounter
     });
     */
-
     return polygons;
 }
 
@@ -737,7 +740,8 @@ async function computeShadow(event: any)
     const obstructionLines: ObstructionLine[] = createObstructionLines(visionShapes);
 
     // Create polygons containing the individual shadows cast by a vision line from the point of view of one player.
-    const polygons: Polygon[][] = createPolygons(obstructionLines, tokensWithVision, width, height, offset, scale);
+    const playerFullLines:any = [];
+    const polygons: Polygon[][] = createPolygons(obstructionLines, tokensWithVision, width, height, offset, scale, playerFullLines);
 
     if (polygons.length == 0)
     {
@@ -780,6 +784,27 @@ async function computeShadow(event: any)
         // Merge all polygons
         for (const polygon of playerPolygons)
         {
+            const lightLOS = buildShape()
+            .strokeColor('#ff0000')
+            .fillOpacity(1)
+            .position({ x: polygon.pointset[0].x, y: polygon.pointset[0].y })
+            .width(30)
+            .height(30)
+            .shapeType("CIRCLE")
+            .metadata({ [`${Constants.EXTENSIONID}/isIndicatorRing`]: true })
+            .build();
+
+            const lightLOS2 = buildShape()
+            .strokeColor('#00ff00')
+            .fillOpacity(1)
+            .position({ x: polygon.pointset[polygon.pointset.length-1].x, y: polygon.pointset[polygon.pointset.length-1].y })
+            .width(30)
+            .height(30)
+            .shapeType("CIRCLE")
+            .metadata({ [`${Constants.EXTENSIONID}/isIndicatorRing`]: true })
+            .build();
+
+            await OBR.scene.local.addItems([lightLOS, lightLOS2]);  
             const shape = polygon.fromShape;
             const newPath = PathKit.NewPath();
 
@@ -836,14 +861,20 @@ async function computeShadow(event: any)
         if (isTorch(tokensWithVision[i])) continue;
 
         //const playerPath = itemsPerPlayer[i].toSVGString();
+        const fullLines = playerFullLines[i];
+        let playerPath = "";
+        for (const line of fullLines) {
+            playerPath += "M"+line.start.x+","+line.start.y+"L"+line.end.x+","+line.end.y;
+        }
         const token = tokensWithVision[i];
 
+        console.log(playerPath, playerFullLines);
+
         for (let j = 0; j < torches.length; j++) {
-            /*
             const torch = torches[j];
 
             // For a torch this is incorrect - we dont want it's token size, we want the light radius.
-            //const radius = (sceneCache.gridDpi / torch.grid.dpi) * (torch.image.width / 2);
+            const radius = (sceneCache.gridDpi / torch.grid.dpi) * (torch.image.width / 2);
 
             let intersects = true;
             let calcPoints = 8;
@@ -851,7 +882,7 @@ async function computeShadow(event: any)
             // This has been turned off because we simply by setting intersects = false and letting the path intersection do all the work,
             // If we use the light radius we need to make sure it doesnt project the LOS points through obstruction lines, and this gets complex.
             // Turning it off is faster and seems to have a better overall result.
-            intersects = false;
+            intersects = true;
 
             // If we dont need to LOS here, we can remove the path intersection library:
             for (let i = 0; i < calcPoints && intersects === true; i++) {
@@ -862,6 +893,7 @@ async function computeShadow(event: any)
                 // TODO: This can be redone to avoid having to translate into svg, but for now..
                 let line = 'M'+token.position.x+","+token.position.y+"L"+x+","+y;
                 intersects = findPathIntersections(line, playerPath, true) > 0 ? true : false;
+                console.log('intersects', intersects);
 
                 if (enableDebug) {
                     const lightLOS = buildShape()
@@ -877,8 +909,7 @@ async function computeShadow(event: any)
                     playerRings.push(lightLOS);
                 }
             }
-            */
-            tokensCanSeeTorch.push({token: token, torch: torches[j], visible: true}); // visible: !intersects
+            tokensCanSeeTorch.push({token: token, torch: torches[j], visible: !intersects});
         }
     }
 
@@ -1244,12 +1275,8 @@ async function computeShadow(event: any)
     busy = false;
 
 }
+
 document.addEventListener("updateVision", computeShadow)
-
-
-function updateDoors() {
-
-}
 
 async function updateTokenVisibility(currentFogPath: any) {
     const toggleTokens: Image[] = [];
