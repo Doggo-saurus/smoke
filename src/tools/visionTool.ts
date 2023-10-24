@@ -1,4 +1,4 @@
-import OBR, { buildPath, buildShape, Image, isImage, Item, Shape, Line, Curve, isCurve, Path, isPath, ItemFilter, Vector2, Math2, MathM } from "@owlbear-rodeo/sdk";
+import OBR, { buildPath, buildShape, Image, isImage, Item, Shape, ItemFilter, Vector2, Math2, MathM } from "@owlbear-rodeo/sdk";
 import PathKitInit from "pathkit-wasm/bin/pathkit";
 import wasm from "pathkit-wasm/bin/pathkit.wasm?url";
 import { polygonMode } from "./visionPolygonMode";
@@ -9,9 +9,6 @@ import { sceneCache } from "./../utilities/globals";
 import { squareDistance, comparePosition, isClose, mod } from "./../utilities/math";
 import { isVisionFog, isActiveVisionLine, isTokenWithVision, isBackgroundBorder, isIndicatorRing, isTokenWithVisionIOwn, isTrailingFog, isAnyFog, isTokenWithVisionForUI, isTorch, isAutohide } from "./../utilities/itemFilters";
 import { Constants } from "../utilities/constants";
-
-// We no longer need this for torch LOS calculations
-// import findPathIntersections from 'path-intersection';
 
 export async function setupAutohideMenus(show: boolean): Promise<void>
 {
@@ -274,7 +271,6 @@ export async function setupContextMenus(): Promise<void>
 
                 await OBR.scene.items.updateItems(ctx.items, (items: Item[]) => {
                     for (let i = 0; i < items.length; i++) {
-                        console.log(items[i]);
                         items[i].zIndex = 1;
                         items[i].layer = "FOG";
                         items[i].disableHit = true;
@@ -407,49 +403,9 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
     const gmIds = sceneCache.players.filter(x => x.role == "GM");
     const useOptimisations = sceneCache.metadata[`${Constants.EXTENSIONID}/quality`] != 'accurate';
 
-    /* 
-    still doesnt work, it's not the torches themselves that need the vis calculation, it's the intersection with the torch's view by the player token,
-    whereby the player needs a view to infinity to be able to intersect what they can see with where the torch is..
-    the only way around this would be to detect lines that sit within a bounding box based on the torch and players positions?
-    */
-    const torchCount = tokensWithVision.filter(isTorch).length;
-/*
-    for (const token of tokensWithVision) {
-        if (isTorch(token)) {
-            torchCount++;
-            const visionRangeMeta = token.metadata[`${Constants.EXTENSIONID}/visionRange`];
-            let visionRange = 1000 * sceneCache.gridDpi;
-            if (visionRangeMeta) {
-                visionRange = sceneCache.gridDpi * ((visionRangeMeta) / sceneCache.gridScale + .5);
-            }
-
-            for (const line of visionLines)
-            {
-                const segments: Vector2[] = [line.startPosition, line.endPosition];
-                const length = Math2.distance(line.startPosition, line.endPosition);
-                const segmentFactor = 3; // this causes load but increases accuracy, because we calculate maxSegments as a proportion of the visionRange divided by the segment factor to increase resolution
-                const maxSegments = Math.floor(length / (visionRange / segmentFactor));
-
-                for (let i = 1; i < maxSegments; i++) {
-                    segments.push(Math2.lerp(line.startPosition, line.endPosition, (i / maxSegments)));
-                }
-
-                let skip = true;
-                for (const segment of segments) {
-                    if (Math2.compare(token.position, segment, visionRange)) {
-                        skip = false;
-                    }
-                };
-
-                if (!skip) {
-                    line.nearTorch = true;
-                    console.log('near torch');
-                }
-            }
-        }
-    }
-*/
-
+    // If we have no torches in the scene at all, we can calculate the player vision without worrying about all the obstruction lines outside of the player view range.
+    // Unfortunately because of the way torches are rendered, (in particular that we calculate partial visibilty for them), we need full visibility calculated and cant use this optimisation if there are any torches at all.
+    const sceneHasTorches = tokensWithVision.some(isTorch);
 
     for (const token of tokensWithVision)
     {
@@ -462,29 +418,16 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
         const cacheResult = playerShadowCache.getValue(token.id);
         polygons.push([]);
         if (cacheResult !== undefined && comparePosition(cacheResult.player.position, token.position) && cacheResult.player.metadata[`${Constants.EXTENSIONID}/visionRange`] === visionRangeMeta)
-        //if (cacheResult !== undefined && comparePosition(cacheResult.player.position, token.position))
         {
             continue; // The result is cached and will be used later, no need to do work
         }
 
-        // if vision range isnt unlimited, intersect it with a circle:
+        // use the token vision range to potentially skip any obstruction lines out of range:
         let visionRange = 1000 * sceneCache.gridDpi;
         if (visionRangeMeta) {
             visionRange = sceneCache.gridDpi * ((visionRangeMeta) / sceneCache.gridScale + .5);
         }
-/*
-        const lightLOS = buildShape()
-        .strokeColor('#ff0000')
-        .fillOpacity(1)
-        .position({ x: token.position.x, y: token.position.y })
-        .width(visionRange*2)
-        .height(visionRange*2)
-        .shapeType("CIRCLE")
-        .metadata({ [`${Constants.EXTENSIONID}/isIndicatorRing`]: true })
-        .build();
 
-        OBR.scene.local.addItems([lightLOS]);
-*/
         for (const line of visionLines)
         {
             const signedDistance = (token.position.x - line.startPosition.x) * (line.endPosition.y - line.startPosition.y) - (token.position.y - line.startPosition.y) * (line.endPosition.x - line.startPosition.x);
@@ -503,7 +446,7 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
             }
 
             // exclude lines based on distance.. this is faster than creating polys around everything, but is less accurate, particularly on long lines
-            if (useOptimisations && (torchCount === 0 || isTorch(token))) {
+            if (useOptimisations && (!sceneHasTorches || isTorch(token))) {
                 const segments: Vector2[] = [line.startPosition, line.endPosition];
                 const length = Math2.distance(line.startPosition, line.endPosition);
                 const segmentFactor = 3; // this causes load but increases accuracy, because we calculate maxSegments as a proportion of the visionRange divided by the segment factor to increase resolution
@@ -627,13 +570,6 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
             polygons[polygons.length - 1].push({ pointset: pointset, fromShape: line.originalShape });
         }
     }
-    /*
-    // Dont bother - this only takes 5ms on complex scenes, probably takes longer to update the dom and repaint:
-    updatePerformanceInformation({
-        "line_counter": lineCounter,
-        "skip_counter": skipCounter
-    });
-    */
 
     return polygons;
 }
@@ -826,62 +762,6 @@ async function computeShadow(event: any)
         }
     }
 
-    // Track torches separately to player vision, so that we can calculate line of sight later
-    const torches = sceneCache.items.filter(isTorch);
-    const tokensCanSeeTorch = [];
-
-    for (let i = 0; i < tokensWithVision.length; i++) {
-
-        // skip ourselves
-        if (isTorch(tokensWithVision[i])) continue;
-
-        //const playerPath = itemsPerPlayer[i].toSVGString();
-        const token = tokensWithVision[i];
-
-        for (let j = 0; j < torches.length; j++) {
-            /*
-            const torch = torches[j];
-
-            // For a torch this is incorrect - we dont want it's token size, we want the light radius.
-            //const radius = (sceneCache.gridDpi / torch.grid.dpi) * (torch.image.width / 2);
-
-            let intersects = true;
-            let calcPoints = 8;
-
-            // This has been turned off because we simply by setting intersects = false and letting the path intersection do all the work,
-            // If we use the light radius we need to make sure it doesnt project the LOS points through obstruction lines, and this gets complex.
-            // Turning it off is faster and seems to have a better overall result.
-            intersects = false;
-
-            // If we dont need to LOS here, we can remove the path intersection library:
-            for (let i = 0; i < calcPoints && intersects === true; i++) {
-                const angle = (i * (360 / calcPoints) * Math.PI) / 180;
-                const x = torch.position.x + radius * Math.cos(angle);
-                const y = torch.position.y + radius * Math.sin(angle);
-
-                // TODO: This can be redone to avoid having to translate into svg, but for now..
-                let line = 'M'+token.position.x+","+token.position.y+"L"+x+","+y;
-                intersects = findPathIntersections(line, playerPath, true) > 0 ? true : false;
-
-                if (enableDebug) {
-                    const lightLOS = buildShape()
-                        .strokeColor('#ff0000')
-                        .fillOpacity(1)
-                        .position({ x: x, y: y })
-                        .width(30)
-                        .height(30)
-                        .shapeType("CIRCLE")
-                        .metadata({ [`${Constants.EXTENSIONID}/isIndicatorRing`]: true })
-                        .build();
-
-                    playerRings.push(lightLOS);
-                }
-            }
-            */
-            tokensCanSeeTorch.push({token: token, torch: torches[j], visible: true}); // visible: !intersects
-        }
-    }
-
     stages[2].pause();
     stages[3].start();
 
@@ -901,17 +781,8 @@ async function computeShadow(event: any)
         const gmIds = sceneCache.players.filter(x => x.role == "GM");
         const myToken = (sceneCache.userId === tokensWithVision[i].createdUserId);
         const gmToken = gmIds.some(x => x.id == tokensWithVision[i].createdUserId);
-        const tokenIsTorch = isTorch(token);
 
-        const canSeeTorch = tokensCanSeeTorch.some(i => {
-            return i.torch.id == token.id && i.visible;
-        });
-
-        if (tokenIsTorch && !canSeeTorch) {
-            delete tokensWithVision[i];
-            delete itemsPerPlayer[i];
-            continue;
-        } else if (tokenIsTorch) {
+        if (isTorch(token)) {
             intersectTorches[i] = true;
         } else {
             // calculate the vision areas of all non-torch tokens into one path, so we can intersect this with the torches to limit the visibility to only what the players can see:
@@ -929,7 +800,7 @@ async function computeShadow(event: any)
 
             // Get Color for Players
             const owner = sceneCache.players.find(x => x.id === token.createdUserId);
-            if (owner && sceneCache.role === "GM" && !tokenIsTorch)
+            if (owner && sceneCache.role === "GM" && !isTorch(token))
             {
                 // Add indicator rings intended for the GM
                 const playerRing = buildShape().strokeColor(owner.color).fillOpacity(0)
