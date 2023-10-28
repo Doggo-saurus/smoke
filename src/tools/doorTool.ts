@@ -11,7 +11,7 @@ export async function setupDoorMenus(): Promise<void>
                 icon: "/opendoor.svg",
                 label: "Enable Door",
                 filter: {
-                    every: [{ key: "layer", value: "DRAWING" }, { key: ["metadata", `${Constants.EXTENSIONID}/isDoor`], value: undefined }, { key: ["metadata", `${Constants.EXTENSIONID}/doorId`], value: undefined}],
+                    every: [{ key: "layer", value: "DRAWING" }, { key: ["metadata", `${Constants.EXTENSIONID}/isVisionLine`], value: true }, { key: ["metadata", `${Constants.EXTENSIONID}/isDoor`], value: undefined }, { key: ["metadata", `${Constants.EXTENSIONID}/doorId`], value: undefined}],
                     roles: ["GM"]
                 },
             },
@@ -19,7 +19,7 @@ export async function setupDoorMenus(): Promise<void>
                 icon: "/closedoor.svg",
                 label: "Disable Door",
                 filter: {
-                    every: [{ key: "layer", value: "DRAWING" }, { key: ["metadata", `${Constants.EXTENSIONID}/doorId`], value: undefined}],
+                    every: [{ key: "layer", value: "DRAWING" }, { key: ["metadata", `${Constants.EXTENSIONID}/isVisionLine`], value: true }, { key: ["metadata", `${Constants.EXTENSIONID}/doorId`], value: undefined}],
                     roles: ["GM"]
                 },
             },
