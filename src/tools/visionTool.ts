@@ -406,57 +406,22 @@ function createObstructionLines(visionShapes: any): ObstructionLine[]
     return obstructionLines;
 }
 
-// whether the line pq is on same side of the line ab
-function calculateLineSide(p: Vector2, q: Vector2, a: Vector2, b: Vector2): number
+function checkLineOcclusionByPoly(line: Vector2[], poly: Vector2[]) 
 {
-    const z1:number = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y);
-    const z2:number = (b.x - a.x) * (q.y - a.y) - (q.x - a.x) * (b.y - a.y);
+    if (Math2.pointInPolygon(line[0], poly) || Math2.pointInPolygon(line[0], poly))
+    {
+        return true;
+    }
 
-    return z1 * z2;
+    return lineIntersect(line, [poly[0], poly[1]]) || lineIntersect(line, [poly[1], poly[2]]) || lineIntersect(line, [poly[2], poly[3]]) || lineIntersect(line, [poly[3], poly[0]]);
 }
 
-// determine whether to occlude a line p based on the based whether it intersects or sits inside of triangle t
-function checkLineOcclusionByTriangle(p0: Vector2, p1: Vector2, t0: Vector2, t1: Vector2, t2: Vector2)
-{
-    const sides: number[] = [
-        // check whether the line is outside one of the three half-planes delimited by the triangle
-        calculateLineSide(p0, t2, t0, t1),
-        calculateLineSide(p1, t2, t0, t1),
-        calculateLineSide(p0, t0, t1, t2),
-        calculateLineSide(p1, t0, t1, t2),
-        calculateLineSide(p0, t1, t2, t0),
-        calculateLineSide(p1, t1, t2, t0),
+function lineIntersect(l1: Vector2[], l2: Vector2[]): boolean {
+    const det = (l1[1].x - l1[0].x) * (l2[1].y - l2[0].y) - (l2[1].x - l2[0].x) * (l1[1].y - l1[0].y);
+    const a = ((l2[1].y - l2[0].y) * (l2[1].x - l1[0].x) + (l2[0].x - l2[1].x) * (l2[1].y - l1[0].y)) / det;
+    const b = ((l1[0].y - l1[1].y) * (l2[1].x - l1[0].x) + (l1[1].x - l1[0].x) * (l2[1].y - l1[0].y)) / det;
 
-        // check whether triangle is totally inside one of the two half-planes delimited by the line
-        calculateLineSide(t0, t1, p0, p1),
-        calculateLineSide(t1, t2, p0, p1)
-    ];
-
-    // if the line is outside triangle, or triangle is apart from the line, we're not intersecting
-    if ((sides[0] < 0 && sides[1] < 0) || (sides[2] < 0 && sides[3] < 0) || (sides[4] < 0 && sides[5] < 0)
-          || (sides[6] > 0 && sides[7] > 0))
-        return false;
-
-    // if the line is aligned with one of the edges, we're overlapping, which we treat as a not intersecting
-    if ((sides[0] == 0 && sides[0] == 0) || (sides[2] == 0 && sides[3] == 0) || (sides[4] == 0 && sides[5] == 0))
-        return false;
-
-    // otherwise don't occlude
-    return true;
-
-    /*
-        // if the line is partially outside, we're touching
-        if ((sides[0] <= 0 && sides[1] <= 0) || (sides[2] <= 0 && sides[3] <= 0) || (sides[4] <= 0 && sides[5] <= 0)
-            || (sides[6] >= 0 && sides[7] >= 0))
-            return true; // can we still skip this?
-
-        // if both the points are completely inside the triangle, do not occlude
-        if (sides[0] > 0 && sides[1] > 0 && sides[2] > 0 && sides[3] > 0 && sides[4] > 0 && sides[5] > 0)
-            return true;
-
-        // otherwise we're intersecting with at least one edge
-        return true;
-    */
+    return a >= 0 && a <= 1 && b >= 0 && b <= 1;
 }
 
 // find either side of the circle from the perspective of a given angle
@@ -464,21 +429,24 @@ function calculatePointOnCircle(center: Vector2, radius: number, angle: number):
   return { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) };
 }
 
-// create a triangle that starts at point and extends around the center of a circle with a given radius
-function getTriangleFromPoint(center: Vector2, radius: number, point: Vector2): Vector2[] {
-  const angle = Math.atan2(point.y - center.y, point.x - center.x);
-  let circlePoint1 = calculatePointOnCircle(center, radius, angle + Math.PI / 2);
-  let circlePoint2 = calculatePointOnCircle(center, radius, angle - Math.PI / 2);
+// create a rect that starts at p1*radius and extends around the p2*radius
+function getRectFromPoints(p1: Vector2, r1: number, p2: Vector2, r2: number): Vector2[] {
+    const angle = Math.atan2(p1.y - p2.y, p1.x - p2.x);
 
-  let direction: Vector2;
-  direction = Math2.normalize(Math2.subtract(circlePoint1, point));
-  circlePoint1 = Math2.add(circlePoint1, Math2.multiply(direction, radius));
+    let p1p1 = calculatePointOnCircle(p1, r1, angle + Math.PI / 2);
+    let p1p2 = calculatePointOnCircle(p1, r1, angle - Math.PI / 2);
+    let p2p1 = calculatePointOnCircle(p2, r2, angle + Math.PI / 2);
+    let p2p2 = calculatePointOnCircle(p2, r2, angle - Math.PI / 2);
 
-  direction = Math2.normalize(Math2.subtract(circlePoint2, point));
-  circlePoint2 = Math2.add(circlePoint2, Math2.multiply(direction, radius));
+    const direction: Vector2 = Math2.normalize(Math2.subtract(p1, p2));
+    p1p1 = Math2.add(p1p1, Math2.multiply(direction, r1));
+    p1p2 = Math2.add(p1p2, Math2.multiply(direction, r1));
 
-  return [point, circlePoint1, circlePoint2];
-}
+    p2p1 = Math2.add(p2p1, Math2.multiply(direction, 0-r2));
+    p2p2 = Math2.add(p2p2, Math2.multiply(direction, 0-r2));
+
+    return [p1p1, p1p2, p2p2, p2p1];
+  }
 
 
 // Main fog visibility calculation occurs here.
@@ -494,6 +462,8 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
     // If we have no torches in the scene at all, we can calculate the player vision without worrying about all the obstruction lines outside of the player view range.
     // Unfortunately because of the way torches are rendered, (in particular that we calculate partial visibilty for them), we need full visibility calculated and cant use this optimisation if there are any torches at all.
     const sceneHasTorches = tokensWithVision.some(isTorch);
+
+    let debugPath = PathKit.NewPath();
 
     for (const token of tokensWithVision)
     {
@@ -525,26 +495,26 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
                 if (isTorch(torch))
                 {
                     // refactor duplicate names
-                    const visionRangeMeta = torch.metadata[`${Constants.EXTENSIONID}/visionRange`];
+                    const torchVisionRangeMeta = torch.metadata[`${Constants.EXTENSIONID}/visionRange`];
 
                     // use the token vision range to potentially skip any obstruction lines out of range:
-                    let visionRange = 1000 * sceneCache.gridDpi;
-                    if (visionRangeMeta) {
-                        visionRange = sceneCache.gridDpi * ((visionRangeMeta) / sceneCache.gridScale + .5);
+                    let torchVisionRange = 1000 * sceneCache.gridDpi;
+                    if (torchVisionRangeMeta) {
+                        torchVisionRange = sceneCache.gridDpi * ((torchVisionRangeMeta) / sceneCache.gridScale + .5);
                     }
 
                     // Create the bounds of the torch and scale the occlusion radius slightly:
-                    const t = getTriangleFromPoint(torch.position, visionRange * 1.1, token.position);
-                    torchBounds.push(t);
-
+                    const r = getRectFromPoints(token.position, visionRange, torch.position, torchVisionRange);
+                    torchBounds.push(r);
 /*
                     let path = PathKit.NewPath();
-                    path.moveTo(t[0].x, t[0].y)
-                        .lineTo(t[1].x, t[1].y)
-                        .lineTo(t[2].x, t[2].y)
+                    path.moveTo(r[0].x, r[0].y)
+                        .lineTo(r[1].x, r[1].y)
+                        .lineTo(r[2].x, r[2].y)
+                        .lineTo(r[3].x, r[3].y)
                         .closePath();
 
-                    const debugp = buildPath().fillRule("evenodd").commands(path.toCmds()).visible(true).fillColor('#660000').strokeColor("#FF0000").fillOpacity(0.2).layer("DRAWING").name("smokedebug").metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/debug`]: true}).build();
+                    const debugp = buildPath().fillRule("evenodd").commands(path.toCmds()).visible(true).fillColor('#660000').strokeColor("#FF0000").fillOpacity(0.2).layer("DRAWING").name("smokedebug").metadata({[`${Constants.EXTENSIONID}/debug`]: true}).build();
                     OBR.scene.local.addItems([debugp]);
                     path.delete();
 */
@@ -589,7 +559,7 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
                 let skip = true;
                 for (const segment of segments)
                 {
-                    if (Math2.compare(token.position, segment, visionRange))
+                    if (Math2.compare(token.position, segment, visionRange * 1.5))
                     {
                         skip = false;
                         break;
@@ -599,7 +569,7 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
                 // if the token we're calculating is not a torch, then check torch occlusion based on the bounding triangles
                 if (skip && sceneHasTorches && !isTorch(token)) {
                     for (const bounds of torchBounds) {
-                        if (checkLineOcclusionByTriangle(line.startPosition, line.endPosition, bounds[0], bounds[1], bounds[2]))
+                        if (checkLineOcclusionByPoly([line.startPosition, line.endPosition], bounds))
                         {
                             skip = false;
                             break;
@@ -609,6 +579,7 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
 
                 if (skip)
                 {
+                    //debugPath.moveTo(line.startPosition.x, line.startPosition.y).lineTo(line.endPosition.x, line.endPosition.y);
                     skipCounter++;
                     continue;
                 }
@@ -717,6 +688,10 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
     }
 
     console.log('skip', skipCounter, 'lines', lineCounter);
+
+    //const debugp = buildPath().commands(debugPath.toCmds()).visible(true).strokeColor("#00FF00").fillOpacity(0).layer("DRAWING").name("smokedebug").metadata({[`${Constants.EXTENSIONID}/debug`]: true}).build();
+    //OBR.scene.local.addItems([debugp]);
+    debugPath.delete();
 
     return polygons;
 }
