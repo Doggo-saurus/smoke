@@ -377,6 +377,7 @@ interface Polygon
     fromShape: any
 }
 
+// split each obstruction object up into individual lines
 function createObstructionLines(visionShapes: any): ObstructionLine[]
 {
     let obstructionLines: ObstructionLine[] = [];
@@ -404,6 +405,81 @@ function createObstructionLines(visionShapes: any): ObstructionLine[]
     }
     return obstructionLines;
 }
+
+// whether the line pq is on same side of the line ab
+function calculateLineSide(p: Vector2, q: Vector2, a: Vector2, b: Vector2): number
+{
+    const z1:number = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y);
+    const z2:number = (b.x - a.x) * (q.y - a.y) - (q.x - a.x) * (b.y - a.y);
+
+    return z1 * z2;
+}
+
+// determine whether to occlude a line p based on the based whether it intersects or sits inside of triangle t
+function checkLineOcclusionByTriangle(p0: Vector2, p1: Vector2, t0: Vector2, t1: Vector2, t2: Vector2)
+{
+    const sides: number[] = [
+        // check whether the line is outside one of the three half-planes delimited by the triangle
+        calculateLineSide(p0, t2, t0, t1),
+        calculateLineSide(p1, t2, t0, t1),
+        calculateLineSide(p0, t0, t1, t2),
+        calculateLineSide(p1, t0, t1, t2),
+        calculateLineSide(p0, t1, t2, t0),
+        calculateLineSide(p1, t1, t2, t0),
+
+        // check whether triangle is totally inside one of the two half-planes delimited by the line
+        calculateLineSide(t0, t1, p0, p1),
+        calculateLineSide(t1, t2, p0, p1)
+    ];
+
+    // if the line is outside triangle, or triangle is apart from the line, we're not intersecting
+    if ((sides[0] < 0 && sides[1] < 0) || (sides[2] < 0 && sides[3] < 0) || (sides[4] < 0 && sides[5] < 0)
+          || (sides[6] > 0 && sides[7] > 0))
+        return false;
+
+    // if the line is aligned with one of the edges, we're overlapping, which we treat as a not intersecting
+    if ((sides[0] == 0 && sides[0] == 0) || (sides[2] == 0 && sides[3] == 0) || (sides[4] == 0 && sides[5] == 0))
+        return false;
+
+    // otherwise don't occlude
+    return true;
+
+    /*
+        // if the line is partially outside, we're touching
+        if ((sides[0] <= 0 && sides[1] <= 0) || (sides[2] <= 0 && sides[3] <= 0) || (sides[4] <= 0 && sides[5] <= 0)
+            || (sides[6] >= 0 && sides[7] >= 0))
+            return true; // can we still skip this?
+
+        // if both the points are completely inside the triangle, do not occlude
+        if (sides[0] > 0 && sides[1] > 0 && sides[2] > 0 && sides[3] > 0 && sides[4] > 0 && sides[5] > 0)
+            return true;
+
+        // otherwise we're intersecting with at least one edge
+        return true;
+    */
+}
+
+// find either side of the circle from the perspective of a given angle
+function calculatePointOnCircle(center: Vector2, radius: number, angle: number): Vector2 {
+  return { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) };
+}
+
+// create a triangle that starts at point and extends around the center of a circle with a given radius
+function getTriangleFromPoint(center: Vector2, radius: number, point: Vector2): Vector2[] {
+  const angle = Math.atan2(point.y - center.y, point.x - center.x);
+  let circlePoint1 = calculatePointOnCircle(center, radius, angle + Math.PI / 2);
+  let circlePoint2 = calculatePointOnCircle(center, radius, angle - Math.PI / 2);
+
+  let direction: Vector2;
+  direction = Math2.normalize(Math2.subtract(circlePoint1, point));
+  circlePoint1 = Math2.add(circlePoint1, Math2.multiply(direction, radius));
+
+  direction = Math2.normalize(Math2.subtract(circlePoint2, point));
+  circlePoint2 = Math2.add(circlePoint2, Math2.multiply(direction, radius));
+
+  return [point, circlePoint1, circlePoint2];
+}
+
 
 // Main fog visibility calculation occurs here.
 
@@ -441,6 +517,41 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
             visionRange = sceneCache.gridDpi * ((visionRangeMeta) / sceneCache.gridScale + .5);
         }
 
+        const torchBounds:Vector2[][] = [];
+        if (sceneHasTorches && !isTorch(token))
+        {
+            for (const torch of tokensWithVision)
+            {
+                if (isTorch(torch))
+                {
+                    // refactor duplicate names
+                    const visionRangeMeta = torch.metadata[`${Constants.EXTENSIONID}/visionRange`];
+
+                    // use the token vision range to potentially skip any obstruction lines out of range:
+                    let visionRange = 1000 * sceneCache.gridDpi;
+                    if (visionRangeMeta) {
+                        visionRange = sceneCache.gridDpi * ((visionRangeMeta) / sceneCache.gridScale + .5);
+                    }
+
+                    // Create the bounds of the torch and scale the occlusion radius slightly:
+                    const t = getTriangleFromPoint(torch.position, visionRange * 1.1, token.position);
+                    torchBounds.push(t);
+
+/*
+                    let path = PathKit.NewPath();
+                    path.moveTo(t[0].x, t[0].y)
+                        .lineTo(t[1].x, t[1].y)
+                        .lineTo(t[2].x, t[2].y)
+                        .closePath();
+
+                    const debugp = buildPath().fillRule("evenodd").commands(path.toCmds()).visible(true).fillColor('#660000').strokeColor("#FF0000").fillOpacity(0.2).layer("DRAWING").name("smokedebug").metadata({[`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/debug`]: true}).build();
+                    OBR.scene.local.addItems([debugp]);
+                    path.delete();
+*/
+                }
+            }
+        }
+
         for (const line of visionLines)
         {
             const signedDistance = (token.position.x - line.startPosition.x) * (line.endPosition.y - line.startPosition.y) - (token.position.y - line.startPosition.y) * (line.endPosition.x - line.startPosition.x);
@@ -459,14 +570,17 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
                 continue;
             }
 
+
             // exclude lines based on distance.. this is faster than creating polys around everything, but is less accurate, particularly on long lines
-            if (useOptimisations && (!sceneHasTorches || isTorch(token)))
+            // forced on for now - torches are no longer a problem, and we can likely run this in accurate mode too
+            if (true || (useOptimisations && (!sceneHasTorches || isTorch(token))))
             {
                 const segments: Vector2[] = [line.startPosition, line.endPosition];
                 const length = Math2.distance(line.startPosition, line.endPosition);
                 const segmentFactor = 3; // this causes load but increases accuracy, because we calculate maxSegments as a proportion of the visionRange divided by the segment factor to increase resolution
                 const maxSegments = Math.floor(length / (visionRange / segmentFactor));
 
+                // This should get rewritten possibly by simply checking a bounding rect for the line or something lightweight
                 for (let i = 1; i < maxSegments; i++)
                 {
                     segments.push(Math2.lerp(line.startPosition, line.endPosition, (i / maxSegments)));
@@ -478,8 +592,20 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
                     if (Math2.compare(token.position, segment, visionRange))
                     {
                         skip = false;
+                        break;
                     }
                 };
+
+                // if the token we're calculating is not a torch, then check torch occlusion based on the bounding triangles
+                if (skip && sceneHasTorches && !isTorch(token)) {
+                    for (const bounds of torchBounds) {
+                        if (checkLineOcclusionByTriangle(line.startPosition, line.endPosition, bounds[0], bounds[1], bounds[2]))
+                        {
+                            skip = false;
+                            break;
+                        }
+                    }
+                }
 
                 if (skip)
                 {
@@ -590,6 +716,8 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
         }
     }
 
+    console.log('skip', skipCounter, 'lines', lineCounter);
+
     return polygons;
 }
 
@@ -619,6 +747,9 @@ async function computeShadow(eventDetail: Detail)
         busy = false;
         return;
     }
+
+    // Remove any debug objects on from previous render passes
+    OBR.scene.local.deleteItems((await OBR.scene.local.getItems(f => f.metadata[`${Constants.EXTENSIONID}/debug`] === true)).map(i => i.id));
 
     const stages = [];
     for (let i = 0; i <= 6; i++) stages.push(new Timer());
@@ -775,7 +906,8 @@ async function computeShadow(eventDetail: Detail)
 
         if (path !== undefined)
         {
-            path.simplify();
+            path.setFillType(PathKit.FillType.EVENODD);
+            //path.simplify();
             itemsPerPlayer[j] = path;
             let cacheResult = playerShadowCache.getValue(player.id);
             if (cacheResult !== undefined)
@@ -841,14 +973,14 @@ async function computeShadow(eventDetail: Detail)
     }
 
     // Intersect torches based on available view
-    intersectFullVision.simplify();
+    //intersectFullVision.simplify();
     for (let i = 0; i < intersectTorches.length; i++)
     {
         if (intersectTorches[i] === true)
         {
             // intersect torch(i) against the full range of vision of the player token(j):
             itemsPerPlayer[i].op(intersectFullVision, PathKit.PathOp.INTERSECT);
-            itemsPerPlayer[i].simplify();
+            //itemsPerPlayer[i].simplify();
         }
     }
 
@@ -893,6 +1025,7 @@ async function computeShadow(eventDetail: Detail)
     let enableReuseFog = persistenceEnabled && sceneCache.metadata[`${Constants.EXTENSIONID}/quality`] == 'fast';
     let reuseFog: Image[] = [];
     let reuseNewFog: any;
+    let oldPath = null;
 
     // Reuse a single (but insanely complex) path to avoid overhead of lots of fog items
     if (enableReuseFog)
@@ -916,9 +1049,8 @@ async function computeShadow(eventDetail: Detail)
         } else
         {
             // Initalize the new path builder with the existing item's path:
-            let oldPath = PathKit.FromCmds((reuseFog[0] as any).commands);
-            reuseNewFog.add(oldPath, PathKit.PathOp.UNION);
-            oldPath.delete();
+            oldPath = PathKit.FromCmds((reuseFog[0] as any).commands);
+            oldPath.setFillType(PathKit.FillType.EVENODD);
         }
     }
 
@@ -947,7 +1079,14 @@ async function computeShadow(eventDetail: Detail)
         {
             if (enableReuseFog)
             {
+                item.setFillType(PathKit.FillType.EVENODD);
                 reuseNewFog.add(item, PathKit.PathOp.UNION);
+
+                if (oldPath !== null)
+                {
+                    reuseNewFog.add(oldPath, PathKit.PathOp.UNION);
+                }
+
             } else
             {
                 itemsToAdd.push({ cmds: item.toCmds(), visible: false, zIndex: 3, playerId: tokensWithVision[key].id, digest: digest });
@@ -999,6 +1138,10 @@ async function computeShadow(eventDetail: Detail)
         {
         }
 
+        if (oldPath !== null)
+        {
+            oldPath.delete();
+        }
         newPath.delete();
         reuseNewFog.delete();
     } else if (persistenceEnabled)
@@ -1178,7 +1321,7 @@ async function computeShadow(eventDetail: Detail)
         promisesToExecute.push(OBR.scene.local.deleteItems(oldRings.map(fogItem => fogItem.id)));
         promisesToExecute.push(OBR.scene.local.addItems(itemsToAdd.map(item =>
         {
-            const path = buildPath().commands(item.cmds).locked(true).visible(item.visible).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({ [`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: item.digest }).build();
+            const path = buildPath().commands(item.cmds).fillRule("evenodd").locked(true).visible(item.visible).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({ [`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: item.digest }).build();
             path.zIndex = item.zIndex;
             return path;
         }))
@@ -1251,7 +1394,7 @@ async function updateTokenVisibility(currentFogPath: any)
     const tokens = sceneCache.items.filter((item) => isAutohide(item) && isImage(item));
 
     // this might not be the right thing to do with complex paths.. union should be sufficient when we intersect later..
-    currentFogPath.simplify();
+    //currentFogPath.simplify();
 
     /*
      * Token LOS calculations:
