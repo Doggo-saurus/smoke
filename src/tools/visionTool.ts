@@ -463,7 +463,11 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
     // Unfortunately because of the way torches are rendered, (in particular that we calculate partial visibilty for them), we need full visibility calculated and cant use this optimisation if there are any torches at all.
     const sceneHasTorches = tokensWithVision.some(isTorch);
 
-    let debugPath = PathKit.NewPath();
+    const debugOcclusion: boolean = false;
+    let debugPath;
+    if (debugOcclusion) {
+        debugPath = PathKit.NewPath();
+    }
 
     for (const token of tokensWithVision)
     {
@@ -506,18 +510,19 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
                     // Create the bounds of the torch and scale the occlusion radius slightly:
                     const r = getRectFromPoints(token.position, visionRange, torch.position, torchVisionRange);
                     torchBounds.push(r);
-/*
-                    let path = PathKit.NewPath();
-                    path.moveTo(r[0].x, r[0].y)
-                        .lineTo(r[1].x, r[1].y)
-                        .lineTo(r[2].x, r[2].y)
-                        .lineTo(r[3].x, r[3].y)
-                        .closePath();
 
-                    const debugp = buildPath().fillRule("evenodd").commands(path.toCmds()).visible(true).fillColor('#660000').strokeColor("#FF0000").fillOpacity(0.2).layer("DRAWING").name("smokedebug").metadata({[`${Constants.EXTENSIONID}/debug`]: true}).build();
-                    OBR.scene.local.addItems([debugp]);
-                    path.delete();
-*/
+                    if (debugOcclusion) {
+                        let path = PathKit.NewPath();
+                        path.moveTo(r[0].x, r[0].y)
+                            .lineTo(r[1].x, r[1].y)
+                            .lineTo(r[2].x, r[2].y)
+                            .lineTo(r[3].x, r[3].y)
+                            .closePath();
+
+                        const debugp = buildPath().fillRule("evenodd").commands(path.toCmds()).visible(true).fillColor('#660000').strokeColor("#FF0000").fillOpacity(0.2).layer("DRAWING").name("smokedebug").metadata({[`${Constants.EXTENSIONID}/debug`]: true}).build();
+                        OBR.scene.local.addItems([debugp]);
+                        path.delete();
+                    }
                 }
             }
         }
@@ -559,7 +564,8 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
                 let skip = true;
                 for (const segment of segments)
                 {
-                    if (Math2.compare(token.position, segment, visionRange * 1.5))
+                    // add 5% to the visionRange as a precaution:
+                    if (Math2.compare(token.position, segment, visionRange * 1.05))
                     {
                         skip = false;
                         break;
@@ -579,7 +585,9 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
 
                 if (skip)
                 {
-                    //debugPath.moveTo(line.startPosition.x, line.startPosition.y).lineTo(line.endPosition.x, line.endPosition.y);
+                    if (debugOcclusion) {
+                        debugPath.moveTo(line.startPosition.x, line.startPosition.y).lineTo(line.endPosition.x, line.endPosition.y);
+                    }
                     skipCounter++;
                     continue;
                 }
@@ -687,11 +695,15 @@ function createPolygons(visionLines: ObstructionLine[], tokensWithVision: any, w
         }
     }
 
-    console.log('skip', skipCounter, 'lines', lineCounter);
+    if (debugOcclusion)
+    {
+        console.log('skip', skipCounter, 'lines', lineCounter);
 
-    //const debugp = buildPath().commands(debugPath.toCmds()).visible(true).strokeColor("#00FF00").fillOpacity(0).layer("DRAWING").name("smokedebug").metadata({[`${Constants.EXTENSIONID}/debug`]: true}).build();
-    //OBR.scene.local.addItems([debugp]);
-    debugPath.delete();
+        const debugp = buildPath().commands(debugPath.toCmds()).visible(true).strokeColor("#00FF00").fillOpacity(0).layer("DRAWING").name("smokedebug").metadata({[`${Constants.EXTENSIONID}/debug`]: true}).build();
+        OBR.scene.local.addItems([debugp]);
+
+        debugPath.delete();
+    }
 
     return polygons;
 }
