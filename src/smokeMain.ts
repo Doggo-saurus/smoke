@@ -238,18 +238,17 @@ export class SmokeMain
 
         if (!Utilities.isObjectEmpty(BSCACHE.sceneMetadata))
         {
-            this.defaultMELDepth!.value = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/defaultMELDepth`] as string ?? "0";
-            this.toolWidth!.value = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toolWidth`] as string ?? "8";
-            this.toolColor!.value = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toolColor`] as string ?? "#000000";
-            this.toolStyle!.value = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toolStyle`] === "solid" ? "solid" : "dotted";
+            if (this.defaultMELDepth) this.defaultMELDepth.value = (BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/defaultMELDepth`] ?? "0") as string;
+            if (this.toolWidth) this.toolWidth.value = (BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toolWidth`] ?? "8") as string;
+            if (this.toolColor) this.toolColor.value = (BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toolColor`] ?? "#000000") as string;
+            if (this.toolStyle) this.toolStyle.value = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toolStyle`] === "solid" ? "solid" : "dotted";
 
-            this.visionCheckbox!.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/visionEnabled`] == true;
-            this.autodetectCheckbox!.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/autodetectEnabled`] == true;
-            this.persistenceCheckbox!.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/persistenceEnabled`] == true;
-            this.autodetectCheckbox!.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/autodetectEnabled`] == true;
-            this.fowCheckbox!.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/fowEnabled`] == true;
-            this.doorCheckbox!.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/playerDoors`] == true;
-            this.fowColor!.value = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/fowColor`] as string ?? "#00000088";
+            if (this.visionCheckbox) this.visionCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/visionEnabled`] == true;
+            if (this.autodetectCheckbox) this.autodetectCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/autodetectEnabled`] == true;
+            if (this.persistenceCheckbox) this.persistenceCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/persistenceEnabled`] == true;
+            if (this.fowCheckbox) this.fowCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/fowEnabled`] == true;
+            if (this.doorCheckbox) this.doorCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/playerDoors`] == true;
+            if (this.fowColor) this.fowColor.value = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/fowColor`] as string ?? "#00000088";
             debug = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/debug`] == true;
         }
 
@@ -435,7 +434,7 @@ export class SmokeMain
     }
 }
 
-export const SMOKEMAIN = new SmokeMain("2.62");
+export const SMOKEMAIN = new SmokeMain("2.63");
 OBR.onReady(async () =>
 {
     // Startup Handler code for delayed Scene Readiness

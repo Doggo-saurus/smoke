@@ -69,13 +69,13 @@ export function SetupInputHandlers()
     {
         if (SMOKEMAIN.hiddenTable!.style.display === "none")
         {
-            SMOKEMAIN.hiddenTable!.style.display = "table-row-group";
-            SMOKEMAIN.hiddenListToggle!.value = "Out-of-Sight List: Click to Hide";
+            if (SMOKEMAIN.hiddenTable) SMOKEMAIN.hiddenTable.style.display = "table-row-group";
+            if (SMOKEMAIN.hiddenListToggle) SMOKEMAIN.hiddenListToggle.value = "Out-of-Sight List: Click to Hide";
         }
         else
         {
-            SMOKEMAIN.hiddenTable!.style.display = "none";
-            SMOKEMAIN.hiddenListToggle!.value = "Out-of-Sight List: Click to Show";
+            if (SMOKEMAIN.hiddenTable) SMOKEMAIN.hiddenTable.style.display = "none";
+            if (SMOKEMAIN.hiddenListToggle) SMOKEMAIN.hiddenListToggle.value = "Out-of-Sight List: Click to Show";
         }
     }
 
@@ -444,8 +444,8 @@ export function SetupInputHandlers()
     // Need to retrieve the colors and set them on the element before initialization for the Thumbnails to update correctly.
     const getFowColor = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/fowColor`] as string ?? "#00000088";
     const getToolColor = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toolColor`] as string ?? "#000000";
-    SMOKEMAIN.toolColor!.value = getToolColor;
-    SMOKEMAIN.fowColor!.value = getFowColor;
+    if (SMOKEMAIN.toolColor) SMOKEMAIN.toolColor.value = getToolColor;
+    if (SMOKEMAIN.fowColor) SMOKEMAIN.fowColor.value = getFowColor;
     Coloris({
         themeMode: 'dark',
         alpha: true,
