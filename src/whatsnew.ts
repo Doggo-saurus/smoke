@@ -28,6 +28,18 @@ const needHelpMessage = `
 
 const whatsNewMessage = `
     <div id="newsContainer">
+        <h1>Smoke & Spectre! 6/7-B</h1>
+        Biscuits.
+        </br> I'll get a Readme up for this soon, as the Elevation aspect of things could use some hard documentation.
+        </br> Especially since some things were a -little- off and now hard rules have to be set.
+        </br> Elevation-0; The base layer everything is at when you aren't using Elevation at all (and have not changed the default layer) will act like normal. You can't see past a wall if the Token is on 0, and the Wall is on 0.
+        </br>
+        </br> For Elevation; Any non-0 layer will behave differently. If the token is on the same layer as the wall, it WILL be able to see over it. The main reason for this is to make it easier to draw elevation - this allows you to continue as it was before, with drawing the mapping AROUND the obstructions.
+        </br> Having it the other way around would mean you would need to draw it within the shape, and that gets very confusing once you have close buildings.
+        </br>
+        </br> This change shoudln't effect very many of you. But for those it does, it should still be behaving as it was before. Except any lines on Elevation-0 have 'infinite' height. They basically can't be seen over.  If you need to get around this, just cover the entire map in Layer-1.
+        </br> Sorry for the confusion.
+        </br>
         <h1>Smoke & Spectre! 6/7</h1>
         Fixed a bug with Elevation when being used on a scene that never set the default elevation layer.
         </br> And.. probably some other little ones. Probably.

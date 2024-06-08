@@ -108,7 +108,7 @@ export function CreatePolygons(visionLines: ObstructionLine[], tokensWithVision:
     {
         return polygons;
     }
-    
+
     for (const token of tokensWithVision)
     {
         const myToken = (BSCACHE.playerId === token.createdUserId);
@@ -119,12 +119,9 @@ export function CreatePolygons(visionLines: ObstructionLine[], tokensWithVision:
         for (const mapping of elevationMappings)
         {
             const withinMap = isPointInPolygon(token.position, mapping.Points);
-            if (withinMap)
+            if (withinMap && (tokenDepth === undefined || mapping.Depth > tokenDepth))
             {
-                if (withinMap && (tokenDepth === undefined || mapping.Depth > tokenDepth))
-                {
-                    tokenDepth = mapping.Depth;
-                }
+                tokenDepth = mapping.Depth;
             }
         }
 
@@ -195,18 +192,15 @@ export function CreatePolygons(visionLines: ObstructionLine[], tokensWithVision:
             for (const mapping of elevationMappings)
             {
                 const withinMap = isPointInPolygon(line.startPosition, mapping.Points);
-                if (withinMap)
+                if (withinMap && (lineDepth === undefined || mapping.Depth > lineDepth))
                 {
-                    if (withinMap && (lineDepth === undefined || mapping.Depth > tokenDepth))
-                    {
-                        lineDepth = mapping.Depth;
-                    }
+                    lineDepth = mapping.Depth;
                 }
             }
 
             if (lineDepth === undefined) lineDepth = BASEMELDEPTH;
 
-            if (tokenDepth > lineDepth) continue;
+            if (tokenDepth >= lineDepth && (lineDepth !== 0 && tokenDepth !== 0)) continue;
 
             const signedDistance = (token.position.x - line.startPosition.x) * (line.endPosition.y - line.startPosition.y) - (token.position.y - line.startPosition.y) * (line.endPosition.x - line.startPosition.x);
 
