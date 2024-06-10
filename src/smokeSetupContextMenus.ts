@@ -432,7 +432,7 @@ export async function SetupContextMenus(): Promise<void>
     });
 
     await OBR.contextMenu.create({
-        id: `${Constants.EXTENSIONID}/toggle-door`,
+        id: `${Constants.EXTENSIONID}/create-door`,
         icons: [
             {
                 icon: "/opendoor.svg",
@@ -508,7 +508,76 @@ export async function SetupContextMenus(): Promise<void>
             }
         },
     });
-
+    await OBR.contextMenu.create({
+        id: `${Constants.EXTENSIONID}/open-door`,
+        icons: [
+            {
+                icon: "/opendoor.svg",
+                label: "Open Door",
+                filter: {
+                    every: [{ key: "layer", value: "DRAWING" },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isVisionLine`],
+                        value: true,
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isDoor`],
+                        value: true
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/doorOpen`],
+                        value: undefined
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isDoorLocked`],
+                        value: undefined
+                    }],
+                },
+            },
+            {
+                icon: "/closedoor.svg",
+                label: "Close Door",
+                filter: {
+                    every: [{ key: "layer", value: "DRAWING" },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isVisionLine`],
+                        value: true,
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isDoor`],
+                        value: true
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/doorOpen`],
+                        value: true
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isDoorLocked`],
+                        value: undefined
+                    }],
+                },
+            },
+        ],
+        async onClick(ctx)
+        {
+            await OBR.scene.items.updateItems(ctx.items, (items) =>
+            {
+                for (let item of items)
+                {
+                    if (item.metadata[`${Constants.EXTENSIONID}/isVisionLine`] && item.metadata[`${Constants.EXTENSIONID}/disabled`])
+                    {
+                        delete item.metadata[`${Constants.EXTENSIONID}/disabled`];
+                        delete item.metadata[`${Constants.EXTENSIONID}/doorOpen`];
+                    }
+                    else if (item.metadata[`${Constants.EXTENSIONID}/isVisionLine`])
+                    {
+                        item.metadata[`${Constants.EXTENSIONID}/disabled`] = true;
+                        item.metadata[`${Constants.EXTENSIONID}/doorOpen`] = true;
+                    }
+                }
+            });
+        },
+    });
     await OBR.contextMenu.create({
         id: `${Constants.EXTENSIONID}/toggle-door-lock`,
         icons: [
