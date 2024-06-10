@@ -788,7 +788,7 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
         }
 
         // Any movemennt on the border will reset it's Z-indexing above 0
-        if (backgroundBorder.zIndex !== 0)
+        if (backgroundBorder && backgroundBorder.zIndex !== 0)
         {
             promisesToExecute.push(
                 OBR.scene.items.updateItems([backgroundBorder.id], (borders) =>

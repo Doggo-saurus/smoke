@@ -221,7 +221,8 @@ class SpectreMain
                     label: "Spectre",
                     filter: {
                         every: [{ key: "type", value: "IMAGE" },
-                        { key: ["metadata", `${Constants.SPECTREID}/spectred`], value: undefined, operator: "==", coordinator: "&&" }],
+                        { key: ["metadata", `${Constants.SPECTREID}/spectred`], value: undefined, operator: "==", coordinator: "&&" },
+                        { key: ["metadata", `${Constants.EXTENSIONID}/hasVision`], operator: "==", value: undefined }],
                     },
                 }, {
                     icon: "/ghost.svg",

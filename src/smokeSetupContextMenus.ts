@@ -517,18 +517,18 @@ export async function SetupContextMenus(): Promise<void>
                 label: "Lock Door",
                 filter: {
                     every: [{ key: "layer", value: "DRAWING" },
-                        {
-                            key: ["metadata", `${Constants.EXTENSIONID}/isDoorLocked`],
-                            value: undefined
-                        },
-                        {
-                            key: ["metadata", `${Constants.EXTENSIONID}/isDoor`],
-                            value: true,
-                        },
-                        {
-                            key: ["metadata", `${Constants.EXTENSIONID}/doorOpen`],
-                            value: undefined,
-                        }],
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isDoorLocked`],
+                        value: undefined
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isDoor`],
+                        value: true,
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/doorOpen`],
+                        value: undefined,
+                    }],
                     roles: ["GM"]
                 },
             },
@@ -536,19 +536,19 @@ export async function SetupContextMenus(): Promise<void>
                 icon: "/unlocked-door.svg",
                 label: "Unlock Door",
                 filter: {
-                    every: [{key: "layer", value: "DRAWING"},
-                        {
-                            key: ["metadata", `${Constants.EXTENSIONID}/isVisionLine`],
-                            value: true,
-                        },
-                        {
-                            key: ["metadata", `${Constants.EXTENSIONID}/isDoor`],
-                            value: true
-                        },
-                        {
-                            key: ["metadata", `${Constants.EXTENSIONID}/doorOpen`],
-                            value: undefined,
-                        }],
+                    every: [{ key: "layer", value: "DRAWING" },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isVisionLine`],
+                        value: true,
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/isDoor`],
+                        value: true
+                    },
+                    {
+                        key: ["metadata", `${Constants.EXTENSIONID}/doorOpen`],
+                        value: undefined,
+                    }],
                     roles: ["GM"]
                 },
             },
@@ -587,7 +587,8 @@ export async function SetupAutohideMenus(show: boolean): Promise<void>
                     icon: "/autohide-off.svg",
                     label: "Enable Autohide",
                     filter: {
-                        every: [{ key: "layer", value: "CHARACTER" }, { key: ["metadata", `${Constants.EXTENSIONID}/hasAutohide`], value: undefined }],
+                        every: [{ key: "layer", value: "CHARACTER" }, { key: ["metadata", `${Constants.EXTENSIONID}/hasAutohide`], value: undefined, coordinator: "&&" },
+                        { key: ["metadata", `${Constants.SPECTREID}/spectred`], value: undefined, operator: "==" }],
                         roles: ["GM"]
                     },
                 },
@@ -595,7 +596,8 @@ export async function SetupAutohideMenus(show: boolean): Promise<void>
                     icon: "/autohide-on.svg",
                     label: "Disable Autohide",
                     filter: {
-                        every: [{ key: "layer", value: "CHARACTER" }],
+                        every: [{ key: "layer", value: "CHARACTER", coordinator: "&&" },
+                        { key: ["metadata", `${Constants.SPECTREID}/spectred`], value: undefined, operator: "==" }],
                         roles: ["GM"]
                     },
                 },
