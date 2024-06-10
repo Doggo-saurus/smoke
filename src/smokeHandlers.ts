@@ -1,10 +1,9 @@
-import OBR, { Item, Image, ItemFilter, Path } from "@owlbear-rodeo/sdk";
+import OBR, { Item, Image, ItemFilter } from "@owlbear-rodeo/sdk";
 import Coloris from "@melloware/coloris";
 import { SMOKEMAIN } from "./smokeMain";
 import { Constants } from "./utilities/bsConstants";
-import { isTrailingFog, isVisionLine } from "./utilities/itemFilters";
+import { isBackgroundBorder, isTrailingFog, isVisionLine } from "./utilities/itemFilters";
 import { importFog, ImportScene } from "./tools/import";
-import { AddBorderIfNoAutoDetect } from "./smokeVisionUI";
 import { SetupAutohideMenus } from "./smokeSetupContextMenus";
 import { BSCACHE } from "./utilities/bsSceneCache";
 
@@ -91,7 +90,26 @@ export function SetupInputHandlers()
         const target = event.target as HTMLInputElement;
 
         await OBR.scene.setMetadata({ [`${Constants.EXTENSIONID}/visionEnabled`]: target.checked });
-        await OBR.scene.fog.setFilled(target.checked);
+        if (BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/autodetectEnabled`] === true)
+        {
+            await OBR.scene.fog.setFilled(target.checked);
+        }
+        else
+        {
+            await OBR.scene.fog.setFilled(false);
+
+            const foundBorder = BSCACHE.sceneItems.filter(isBackgroundBorder);
+            await OBR.scene.items.updateItems(foundBorder, (items) =>
+            {
+                for (let item of items)
+                {
+                    if (target.checked)
+                        item.style.fillOpacity = 1;
+                    else
+                        item.style.fillOpacity = 0;
+                }
+            });
+        }
     };
 
     // This is for the grid-snap option
@@ -126,7 +144,7 @@ export function SetupInputHandlers()
         await OBR.scene.setMetadata({ [`${Constants.EXTENSIONID}/autodetectEnabled`]: target.checked });
         SMOKEMAIN.boundryOptions!.style.display = target.checked ? 'none' : '';
 
-        await AddBorderIfNoAutoDetect();
+        //await AddBorderIfNoAutoDetect();
     };
 
     // Toggles Fog of War - Trailing Fog

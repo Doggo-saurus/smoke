@@ -28,6 +28,11 @@ const needHelpMessage = `
 
 const whatsNewMessage = `
     <div id="newsContainer">
+        <h1>Smoke & Spectre! 6/9</h1>
+        Medium update!  I wanted to add some more leverage to NOT using Auto-Detect maps, so now it's default functionality will be to ONLY fog the area within it's borders.
+        </br> So if you ever wanted to fog only a portion of the map and have the rest visible, this is the way to do it. Simply turn off Auto-Detect and use the Boundary Box.
+        </br>
+        </br> Also, it exists in the FOG layer now. So to manually move the box by clicking/dragging, you'll need to go to the Fog Tools.
         <h1>Smoke & Spectre! 6/7-B</h1>
         Biscuits.
         </br> I'll get a Readme up for this soon, as the Elevation aspect of things could use some hard documentation.

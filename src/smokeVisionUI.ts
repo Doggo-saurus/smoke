@@ -11,18 +11,43 @@ export async function AddBorderIfNoAutoDetect()
     {
         if (foundBorder.length == 0)
         {
-            let drawing = buildShape().width(BSCACHE.gridDpi * 30).height(BSCACHE.gridDpi * 30).visible(false).shapeType("RECTANGLE").visible(true).locked(false).strokeColor("pink").strokeOpacity(.5).fillOpacity(0).strokeDash([200, 500]).strokeWidth(50).build() as any;
+            const toAddtoScene = [];
+
+            const drawing = buildShape()
+                .width(BSCACHE.gridDpi * 30)
+                .height(BSCACHE.gridDpi * 30)
+                .visible(false)
+                .shapeType("RECTANGLE")
+                .name("Smoke! Boundary Box")
+                .visible(true)
+                .locked(false)
+                .strokeColor("pink")
+                .strokeOpacity(.5)
+                .fillColor(BSCACHE.fogColor)
+                .fillOpacity(BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/visionEnabled`] === true ? 1 : 0)
+                .strokeDash([200, 500])
+                .strokeWidth(50)
+                .layer("FOG")
+                .visible(true)
+                .zIndex(0)
+                .build() as any;
             drawing.metadata[`${Constants.EXTENSIONID}/isBackgroundImage`] = true;
             drawing.metadata[`${Constants.EXTENSIONID}/grid`] = true;
             drawing.id = Constants.GRIDID;
-            await OBR.scene.items.addItems([drawing]);
+            toAddtoScene.push(drawing);
+            await OBR.scene.items.addItems(toAddtoScene);
+            await OBR.scene.fog.setFilled(false);
         }
     }
 
     if (BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/autodetectEnabled`] === true
         && foundBorder.length > 0)
     {
-        await OBR.scene.items.deleteItems([Constants.GRIDID]);
+        if (BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/visionEnabled`] === true)
+        {
+            await OBR.scene.fog.setFilled(true);
+            await OBR.scene.items.deleteItems([Constants.GRIDID]);
+        }
     }
 }
 

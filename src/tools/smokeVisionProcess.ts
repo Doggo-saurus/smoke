@@ -3,7 +3,7 @@ import PathKitInit from "pathkit-wasm/bin/pathkit";
 import wasm from "pathkit-wasm/bin/pathkit.wasm?url";
 import { DEBUG, Timer } from "../utilities/debug";
 import { comparePosition } from "../utilities/math";
-import { isVisionFog, isActiveVisionLine, isTokenWithVision, isBackgroundBorder, isIndicatorRing, isTokenWithVisionIOwn, isTrailingFog, isAnyFog, isTokenWithVisionForUI, isTorch, isAutohide } from "../utilities/itemFilters";
+import { isVisionFog, isActiveVisionLine, isTokenWithVision, isBackgroundBorder, isIndicatorRing, isTokenWithVisionIOwn, isTrailingFog, isAnyFog, isTokenWithVisionForUI, isTorch, isAutohide, isBackgroundImage } from "../utilities/itemFilters";
 import { Constants } from "../utilities/bsConstants";
 import { getDoorPath, initDoors } from "./doorTool";
 import { CreateObstructionLines, CreatePolygons } from "./smokeCreateObstructions";
@@ -48,7 +48,8 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
     const ALLVISIONTOKENS = BSCACHE.sceneItems.filter((item) => isTokenWithVision(item) && (!isTorch(item) || item.visible === true));
     const visionShapes = BSCACHE.sceneItems.filter(isActiveVisionLine);
     const autoHideItems = BSCACHE.sceneItems.filter(isAutohide);
-    const backgroundImage = BSCACHE.sceneItems.filter(isBackgroundBorder)?.[0] as any as Shape;
+    const backgroundImage = BSCACHE.sceneItems.filter(isBackgroundImage)?.[0] as any as Shape;
+    const backgroundBorder = BSCACHE.sceneItems.filter(isBackgroundBorder)?.[0] as any as Shape;
     const visionEnabled = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/visionEnabled`] === true;
     const persistenceEnabled = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/persistenceEnabled`] === true;
     const autodetectEnabled = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/autodetectEnabled`] === true;
@@ -56,110 +57,22 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
     const fowColor = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/fowColor`] as string;
     const playerDoors = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/playerDoors`] === true;
 
-    let mapSize: number[] = [];
-    let mapScale: number[] = [];
-    let mapOffset: number[] = [];
+    let mapSize: number[] = [0, 0];
+    let mapScale: number[] = [1, 1];
+    let mapOffset: number[] = [0, 0];
+    let [width, height] = mapSize;
 
     let invalidateCache = false;
     let TOKENSVIEWABLE: Item[] = [];
 
-    if (backgroundImage === undefined)
+    if (backgroundImage === undefined && backgroundBorder === undefined)
     {
-        mapSize[0] = 0;
-        mapSize[1] = 0;
-        mapScale[0] = 1;
-        mapScale[1] = 1;
-        mapOffset[0] = 0;
-        mapOffset[1] = 0;
-    }
-    else
-    {
-        mapSize[0] = backgroundImage.width * backgroundImage.scale.x;
-        mapSize[1] = backgroundImage.height * backgroundImage.scale.y;
-        mapScale[0] = backgroundImage.scale.x;
-        mapScale[1] = backgroundImage.scale.y;
-        mapOffset[0] = backgroundImage.position.x;
-        mapOffset[1] = backgroundImage.position.y;
-
-        // This fixes images being offset from the original position in the earlier versions, though doesnt apply to smoke:
-        // const offset = [backgroundImage.position.x - (backgroundImage.grid.offset.x * dpiRatio), backgroundImage.position.y - (backgroundImage.grid.offset.y * dpiRatio)];
-    }
-
-    if (BSCACHE.playerRole === "GM")
-    {
-        TOKENSVIEWABLE = ALLVISIONTOKENS;
-        const mapHeight = document.getElementById("mapHeight")! as HTMLInputElement;
-        const mapWidth = document.getElementById("mapWidth")! as HTMLInputElement;
-        if (mapWidth) mapWidth.value = (Math.round(mapSize[0]) / BSCACHE.gridDpi).toString();
-        if (mapHeight) mapHeight.value = (Math.round(mapSize[1]) / BSCACHE.gridDpi).toString();
-
-    }
-    else
-    {
-        TOKENSVIEWABLE = ALLVISIONTOKENS.filter(isTokenWithVisionIOwn);
-        for (const avToken of ALLVISIONTOKENS)
-        {
-            // Fish out the GM only Tokens based on saved user data
-            if (isTokenWithVision(avToken))
-            {
-                const tokenOwner = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/USER-${avToken.createdUserId}`] as Player;
-                if (tokenOwner?.role === "GM") TOKENSVIEWABLE.push(avToken);
-            }
-        }
-    }
-
-    // Check if any values have changed and a re-draw is necessary
-    const sVisionShapes = JSON.stringify(visionShapes);
-    const sAutohideItems = JSON.stringify(autoHideItems);
-    const sPlayersWithVision = JSON.stringify(TOKENSVIEWABLE);
-    const sBackgroundImage = JSON.stringify(backgroundImage);
-
-    if (BSCACHE.previousMap === sBackgroundImage
-        && BSCACHE.previousVisionEnabled === visionEnabled
-        && BSCACHE.previousFowColor === fowColor
-        && BSCACHE.previousAutodetectEnabled === autodetectEnabled
-        && BSCACHE.previousFowEnabled === fowEnabled
-        && BSCACHE.previousPersistenceEnabled === persistenceEnabled
-        && BSCACHE.previousVisionShapes === sVisionShapes
-        && BSCACHE.previousAutohideItems === sAutohideItems
-        && BSCACHE.previousPlayersWithVision === sPlayersWithVision
-        && BSCACHE.previousSize[0] === mapSize[0]
-        && BSCACHE.previousSize[1] === mapSize[1]
-        && forceUpdate !== true)
-    {
+        BSCACHE.playerShadowCache.invalidate();
         BSCACHE.busy = false;
         await OBR.action.setBadgeText(undefined);
         return;
     }
-
-    // Check if the cache needs to be invalidated
-    if (sBackgroundImage != BSCACHE.previousMap
-        || BSCACHE.previousVisionShapes != sVisionShapes
-        || mapSize[0] != BSCACHE.previousSize[0]
-        || mapSize[1] != BSCACHE.previousSize[1])
-    {
-        invalidateCache = true;
-    }
-
-    BSCACHE.previousMap = sBackgroundImage;
-    BSCACHE.previousPlayersWithVision = sPlayersWithVision;
-    BSCACHE.previousVisionShapes = sVisionShapes;
-    BSCACHE.previousSize = mapSize;
-    BSCACHE.previousVisionEnabled = visionEnabled;
-    BSCACHE.previousAutodetectEnabled = autodetectEnabled;
-    BSCACHE.previousFowEnabled = fowEnabled;
-    BSCACHE.previousFowColor = fowColor;
-    BSCACHE.previousPersistenceEnabled = persistenceEnabled;
-    computeTimer.pause();
-
-    const stages: any[] = [];
-    for (let i = 0; i <= 6; i++) stages.push(new Timer());
-
-    stages[1].start();
-
-    let [width, height] = mapSize;
-
-    if (autodetectEnabled)
+    else if (autodetectEnabled)
     {
         // draw a big box around all the maps
         const maps: Image[] = BSCACHE.sceneItems.filter((item) => item.layer === "MAP" && isImage(item)) as Image[];
@@ -226,6 +139,86 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
         mapScale = [1, 1];
         [width, height] = mapSize;
     }
+    else
+    {
+        mapSize[0] = backgroundBorder.width * backgroundBorder.scale.x;
+        mapSize[1] = backgroundBorder.height * backgroundBorder.scale.y;
+        mapScale[0] = backgroundBorder.scale.x;
+        mapScale[1] = backgroundBorder.scale.y;
+        mapOffset[0] = backgroundBorder.position.x;
+        mapOffset[1] = backgroundBorder.position.y;
+    }
+
+    if (BSCACHE.playerRole === "GM")
+    {
+        TOKENSVIEWABLE = ALLVISIONTOKENS;
+        const mapHeight = document.getElementById("mapHeight")! as HTMLInputElement;
+        const mapWidth = document.getElementById("mapWidth")! as HTMLInputElement;
+        if (mapWidth) mapWidth.value = (Math.round(mapSize[0]) / BSCACHE.gridDpi).toString();
+        if (mapHeight) mapHeight.value = (Math.round(mapSize[1]) / BSCACHE.gridDpi).toString();
+    }
+    else
+    {
+        TOKENSVIEWABLE = ALLVISIONTOKENS.filter(isTokenWithVisionIOwn);
+        for (const avToken of ALLVISIONTOKENS)
+        {
+            // Fish out the GM only Tokens based on saved user data
+            if (isTokenWithVision(avToken))
+            {
+                const tokenOwner = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/USER-${avToken.createdUserId}`] as Player;
+                if (tokenOwner?.role === "GM") TOKENSVIEWABLE.push(avToken);
+            }
+        }
+    }
+
+    // Check if any values have changed and a re-draw is necessary
+    const sVisionShapes = JSON.stringify(visionShapes);
+    const sAutohideItems = JSON.stringify(autoHideItems);
+    const sPlayersWithVision = JSON.stringify(TOKENSVIEWABLE);
+    const sBackgroundImage = JSON.stringify(backgroundImage);
+
+    if (BSCACHE.previousMap === sBackgroundImage
+        && BSCACHE.previousVisionEnabled === visionEnabled
+        && BSCACHE.previousFowColor === fowColor
+        && BSCACHE.previousAutodetectEnabled === autodetectEnabled
+        && BSCACHE.previousFowEnabled === fowEnabled
+        && BSCACHE.previousPersistenceEnabled === persistenceEnabled
+        && BSCACHE.previousVisionShapes === sVisionShapes
+        && BSCACHE.previousAutohideItems === sAutohideItems
+        && BSCACHE.previousPlayersWithVision === sPlayersWithVision
+        && BSCACHE.previousSize[0] === mapSize[0]
+        && BSCACHE.previousSize[1] === mapSize[1]
+        && forceUpdate !== true)
+    {
+        BSCACHE.busy = false;
+        await OBR.action.setBadgeText(undefined);
+        return;
+    }
+
+    // Check if the cache needs to be invalidated
+    if (sBackgroundImage != BSCACHE.previousMap
+        || BSCACHE.previousVisionShapes != sVisionShapes
+        || mapSize[0] != BSCACHE.previousSize[0]
+        || mapSize[1] != BSCACHE.previousSize[1])
+    {
+        invalidateCache = true;
+    }
+
+    BSCACHE.previousMap = sBackgroundImage;
+    BSCACHE.previousPlayersWithVision = sPlayersWithVision;
+    BSCACHE.previousVisionShapes = sVisionShapes;
+    BSCACHE.previousSize = mapSize;
+    BSCACHE.previousVisionEnabled = visionEnabled;
+    BSCACHE.previousAutodetectEnabled = autodetectEnabled;
+    BSCACHE.previousFowEnabled = fowEnabled;
+    BSCACHE.previousFowColor = fowColor;
+    BSCACHE.previousPersistenceEnabled = persistenceEnabled;
+    computeTimer.pause();
+
+    const stages: any[] = [];
+    for (let i = 0; i <= 6; i++) stages.push(new Timer());
+
+    stages[1].start();
 
     let cacheHits = 0, cacheMisses = 0;
     if (invalidateCache)  // Something significant changed => invalidate cache
@@ -517,7 +510,7 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
             {
                 // Create a new visionFog item with an empty path, so we can add to it.
                 // Note that the digest is forced, which avoids the object being reused by the deduplication code.
-                const path = buildPath().commands([]).fillRule("evenodd").locked(true).visible(false).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({ [`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: "reuse" }).build();
+                const path = buildPath().commands([]).fillRule("evenodd").locked(true).visible(false).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Smoke!").metadata({ [`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: "reuse" }).build();
 
                 // set our fog zIndex to 3, otherwise it can sometimes draw over the top of manually created fog objects:
                 path.zIndex = 3;
@@ -764,17 +757,12 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
 
         computeTimer.pause(); awaitTimer.resume();
 
-        // So this doesnt make a huge amount of sense to me, however i think batching promises in this way only executes them when you call Promise.all,
-        // and for some reason this causes issues with some of the procedural code below IF you remove the await on the Promise.all.
-        // However, per the above, if we simply just call them individually and dont await any of them, everything is fine.. and we get a bit more of reponsiveness in the UI
-
         await DEBUG.DebugBlobINeverUse();
 
-        //promisesToExecute.push(OBR.scene.local.deleteItems(oldRings.map(fogItem => fogItem.id)));
         LOCALDELETELIST = LOCALDELETELIST.concat(oldRings.map(fogItem => fogItem.id));
         itemsToAdd.map(item =>
         {
-            const path = buildPath().commands(item.cmds).fillRule("evenodd").locked(true).visible(item.visible).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Fog of War").metadata({ [`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: item.digest }).build();
+            const path = buildPath().commands(item.cmds).fillRule("evenodd").locked(true).visible(item.visible).fillColor('#000000').strokeColor("#000000").layer("FOG").name("Smoke!").metadata({ [`${Constants.EXTENSIONID}/isVisionFog`]: true, [`${Constants.EXTENSIONID}/digest`]: item.digest }).build();
             path.zIndex = item.zIndex;
             LOCALADDLIST.push(path);
         });
@@ -790,9 +778,27 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
             LOCALADDLIST = LOCALADDLIST.concat(playerRings);
         }
 
-        if (!BSCACHE.fogFilled)
+        if (!BSCACHE.fogFilled && BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/autodetectEnabled`] === true)
         {
             await OBR.scene.fog.setFilled(true);
+        }
+        else if (BSCACHE.fogFilled && BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/autodetectEnabled`] !== true)
+        {
+            await OBR.scene.fog.setFilled(false);
+        }
+
+        // Any movemennt on the border will reset it's Z-indexing above 0
+        if (backgroundBorder.zIndex !== 0)
+        {
+            promisesToExecute.push(
+                OBR.scene.items.updateItems([backgroundBorder.id], (borders) =>
+                {
+                    for (let border of borders)
+                    {
+                        border.zIndex = 0;
+                    }
+                })
+            );
         }
 
         // Update all items
@@ -800,8 +806,6 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
         await OBR.scene.local.deleteItems(LOCALDELETELIST);
         await OBR.scene.local.addItems(LOCALADDLIST);
 
-        // this is mildly expensive, but useful for debugging:
-        //let items = await OBR.scene.local.getItems(isAnyFog as ItemFilter<Image>);
         let itemCounter = 0;//items.length;
 
         stages[5].pause();
