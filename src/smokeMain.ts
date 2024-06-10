@@ -3,7 +3,7 @@ import { isAnyFog, isTokenWithVisionForUI } from './utilities/itemFilters';
 import { OnSceneDataChange } from './tools/smokeVisionProcess';
 import { Constants } from "./utilities/bsConstants";
 import { SetupInputHandlers, SetupPanelHandlers } from "./smokeHandlers";
-import { AddUnitVisionUI } from "./smokeVisionUI";
+import { AddBorderIfNoAutoDetect, AddUnitVisionUI } from "./smokeVisionUI";
 import { InitializeScene } from "./smokeInitializeScene";
 import { SetupContextMenus, SetupAutohideMenus } from "./smokeSetupContextMenus";
 import { SetupTools } from "./smokeSetupTools";
@@ -425,6 +425,7 @@ export class SmokeMain
         }
 
         await InitializeScene();
+        await AddBorderIfNoAutoDetect();
         await OnSceneDataChange();
         SPECTRE.SetupLocalSpecterHandlers();
 

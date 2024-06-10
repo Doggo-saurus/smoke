@@ -147,6 +147,7 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
         mapScale[1] = backgroundBorder.scale.y;
         mapOffset[0] = backgroundBorder.position.x;
         mapOffset[1] = backgroundBorder.position.y;
+        [width, height] = mapSize;
     }
 
     if (BSCACHE.playerRole === "GM")

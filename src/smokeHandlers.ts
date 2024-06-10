@@ -143,8 +143,6 @@ export function SetupInputHandlers()
 
         await OBR.scene.setMetadata({ [`${Constants.EXTENSIONID}/autodetectEnabled`]: target.checked });
         SMOKEMAIN.boundryOptions!.style.display = target.checked ? 'none' : '';
-
-        //await AddBorderIfNoAutoDetect();
     };
 
     // Toggles Fog of War - Trailing Fog
