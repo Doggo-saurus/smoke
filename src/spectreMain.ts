@@ -77,6 +77,19 @@ class SpectreMain
                     await OBR.scene.setMetadata({ [`${Constants.SPECTREID}/current_spectres`]: ghostsForMe });
                     await OBR.broadcast.sendMessage(Constants.SPECTREBROADCASTID, ghostsForMe);
                 }
+                // Cleanup
+
+                const existingSelects = document.querySelectorAll('.tSelects') as any;
+                for (const tSelect of existingSelects)
+                {
+                    const unitId = tSelect.id.replace("select-", "");
+                    const exists = ghostsForMe.find(x => x.id === unitId);
+                    if (!exists)
+                    {
+                        const ghostRow = document.getElementById(`tr-${unitId}`);
+                        ghostRow?.remove();
+                    }
+                }
             }
             else
             {
@@ -263,13 +276,16 @@ class SpectreMain
                         ghost.metadata[`${Constants.SPECTREID}/spectred`] = undefined;
 
                         const ghostIndex = BSCACHE.localGhosts.findIndex(x => x.id === ghost.id);
-                        BSCACHE.localGhosts.splice(ghostIndex, 1);
-                        const rowElement = document.getElementById(`tr-${ghost.id}`)!;
-                        rowElement?.remove();
+                        if (ghostIndex !== -1)
+                        {
+                            BSCACHE.localGhosts.splice(ghostIndex, 1);
+                            const rowElement = document.getElementById(`tr-${ghost.id}`)!;
+                            rowElement?.remove();
 
 
-                        ghost.metadata[`${Constants.SPECTREID}/viewers`] = [];
-                        await OBR.scene.items.addItems([ghost]);
+                            ghost.metadata[`${Constants.SPECTREID}/viewers`] = [];
+                            await OBR.scene.items.addItems([ghost]);
+                        }
                     }
                 }
             }
