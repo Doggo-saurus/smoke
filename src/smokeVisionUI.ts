@@ -343,9 +343,20 @@ export function AddUnitVisionUI(player: Item)
             }
             else
             {
+                // Added height adjustments for lengty player lists
+                const contextItems = document.getElementById("playerListing")!.children.length;
+                const height = (contextItems + 1) * 34;
+
                 // Don't let the menu go off window, it'll cut
                 const adjustedLeft = Math.min(e.pageX, window.innerWidth - 150);
-                const adjustedTop = Math.min(e.pageY, (window.innerHeight > 300 ? window.innerHeight - 50 : window.innerHeight) - 120);
+                let adjustedTop = Math.min(e.pageY, (window.innerHeight > 300 ? window.innerHeight - 50 : window.innerHeight) - 120);
+
+                // If the action window is less than the height of the context menu and where it's going to be, it'll run off the end
+                // Adjust to have it end at the bottom
+                if (window.innerHeight < height + adjustedTop)
+                {
+                    adjustedTop = window.innerHeight - height;
+                }
 
                 contextMenu.style.display = 'block';
                 contextMenu.style.left = adjustedLeft + "px";
