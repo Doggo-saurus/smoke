@@ -6,6 +6,7 @@ import { isBackgroundBorder, isTrailingFog, isVisionLine } from "./utilities/ite
 import { importFog, ImportScene } from "./tools/import";
 import { SetupAutohideMenus } from "./smokeSetupContextMenus";
 import { BSCACHE } from "./utilities/bsSceneCache";
+import { AddBorderIfNoAutoDetect } from "./smokeVisionUI";
 
 export function SetupPanelHandlers()
 {
@@ -141,8 +142,9 @@ export function SetupInputHandlers()
         if (!event || !event.target) return;
         const target = event.target as HTMLInputElement;
 
-        await OBR.scene.setMetadata({ [`${Constants.EXTENSIONID}/autodetectEnabled`]: target.checked });
         SMOKEMAIN.boundryOptions!.style.display = target.checked ? 'none' : '';
+
+        await OBR.scene.setMetadata({ [`${Constants.EXTENSIONID}/autodetectEnabled`]: target.checked });
     };
 
     // Toggles Fog of War - Trailing Fog

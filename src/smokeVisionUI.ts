@@ -46,8 +46,8 @@ export async function AddBorderIfNoAutoDetect()
         if (BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/visionEnabled`] === true)
         {
             await OBR.scene.fog.setFilled(true);
-            await OBR.scene.items.deleteItems([Constants.GRIDID]);
         }
+        await OBR.scene.items.deleteItems([Constants.GRIDID]);
     }
 }
 
