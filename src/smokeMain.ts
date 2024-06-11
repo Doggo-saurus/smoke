@@ -1,4 +1,5 @@
 import OBR, { Item, Image, ItemFilter, isImage } from "@owlbear-rodeo/sdk";
+import * as showdown from 'showdown';
 import { isAnyFog, isTokenWithVisionForUI } from './utilities/itemFilters';
 import { OnSceneDataChange } from './tools/smokeVisionProcess';
 import { Constants } from "./utilities/bsConstants";
@@ -38,11 +39,13 @@ export class SmokeMain
     public spectreViewToggle?: HTMLButtonElement;
     public settingsViewToggle?: HTMLButtonElement;
     public debugViewToggle?: HTMLButtonElement;
+    public helpViewToggle?: HTMLButtonElement;
 
     public smokeViewPanel?: HTMLDivElement;
     public spectreViewPanel?: HTMLDivElement;
     public settingsViewPanel?: HTMLDivElement;
     public debugViewPanel?: HTMLDivElement;
+    public helpViewPanel?: HTMLDivElement;
 
     // Settings
     public persistenceCheckbox?: HTMLInputElement;
@@ -89,8 +92,9 @@ export class SmokeMain
                 <div class="controlContainer">
                     <button class="view-button selected" id="smokeViewToggle">SMOKE</button>
                     <button class="view-button" id="spectreViewToggle">SPECTRE</button>
-                    <button class="view-button" id="settingsViewToggle">SETTINGS</button>
+                    <button class="view-button" id="settingsViewToggle"><img class="menu_svg" src="./settings.svg"></button>
                     <button class="view-button" id="debugViewToggle">INFO</button>
+                    <button class="view-button" id="helpViewToggle">HELP</button>
                     <div id="miniButtons">
                         <button class="circle-button" id="processedIndicator"></button>
                         <input type="checkbox" id="vision_checkbox" class="large" title="Enable Dynamic Fog">    
@@ -102,6 +106,9 @@ export class SmokeMain
             <div id="spectreViewPanel" class="panel" style="display: none;"></div>
             <div id="settingsViewPanel" class="panel" style="display: none;"></div>
             <div id="debugViewPanel" class="panel" style="display: none;"></div>
+            <div id="helpViewPanel" class="panel" style="display: none;">
+                <div id="markdownHelpContainer"></div>
+            </div>
         `;
 
         this.mainWindow!.parentElement!.style.placeItems = "start";
@@ -110,17 +117,20 @@ export class SmokeMain
         this.spectreViewToggle = document.getElementById("spectreViewToggle") as HTMLButtonElement;
         this.settingsViewToggle = document.getElementById("settingsViewToggle") as HTMLButtonElement;
         this.debugViewToggle = document.getElementById("debugViewToggle") as HTMLButtonElement;
+        this.helpViewToggle = document.getElementById("helpViewToggle") as HTMLButtonElement;
 
         this.smokeViewPanel = document.getElementById("smokeViewPanel") as HTMLDivElement;
         this.spectreViewPanel = document.getElementById("spectreViewPanel") as HTMLDivElement;
         this.settingsViewPanel = document.getElementById("settingsViewPanel") as HTMLDivElement;
         this.debugViewPanel = document.getElementById("debugViewPanel") as HTMLDivElement;
+        this.helpViewPanel = document.getElementById("helpViewPanel") as HTMLDivElement;
 
         // Setup Panels before hitting Handlers
         this.smokeViewPanel.innerHTML = Constants.SMOKEHTML;
         this.spectreViewPanel.innerHTML = Constants.SPECTREHTML;
         this.settingsViewPanel.innerHTML = Constants.SETTINGSHTML;
         this.debugViewPanel.innerHTML = Constants.DEBUGHTML;
+        this.SetupHelpDocuments();
 
         this.mainUIDiv = document.getElementById("main-ui") as HTMLDivElement;
         this.settingsUIDiv = document.getElementById("settings-ui") as HTMLDivElement;
@@ -177,6 +187,14 @@ export class SmokeMain
 
         Coloris.init();
         SetupPanelHandlers();
+    }
+
+    private SetupHelpDocuments()
+    {
+        const converter = new showdown.Converter();
+        const helpHtml = converter.makeHtml(Constants.MARKDOWNHELP);
+        const helpContainer = document.getElementById("markdownHelpContainer") as HTMLDivElement;
+        helpContainer.innerHTML = helpHtml;
     }
 
     private async SetupPlayerElements()

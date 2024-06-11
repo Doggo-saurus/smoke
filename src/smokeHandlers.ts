@@ -34,17 +34,25 @@ export function SetupPanelHandlers()
         TogglePanel(SMOKEMAIN.debugViewToggle!, SMOKEMAIN.debugViewPanel!);
     };
 
+    SMOKEMAIN.helpViewToggle!.onclick = (e) =>
+    {
+        e.preventDefault();
+        TogglePanel(SMOKEMAIN.helpViewToggle!, SMOKEMAIN.helpViewPanel!);
+    };
+
     function TogglePanel(button: HTMLButtonElement, panel: HTMLDivElement)
     {
         SMOKEMAIN.smokeViewToggle?.classList.remove("selected");
         SMOKEMAIN.spectreViewToggle?.classList.remove("selected");
         SMOKEMAIN.settingsViewToggle?.classList.remove("selected");
         SMOKEMAIN.debugViewToggle?.classList.remove("selected");
+        SMOKEMAIN.helpViewToggle?.classList.remove("selected");
 
         SMOKEMAIN.smokeViewPanel!.style.display = "none";
         SMOKEMAIN.spectreViewPanel!.style.display = "none";
         SMOKEMAIN.settingsViewPanel!.style.display = "none";
         SMOKEMAIN.debugViewPanel!.style.display = "none";
+        SMOKEMAIN.helpViewPanel!.style.display = "none";
 
         button.classList.add("selected");
         panel.style.display = "block";

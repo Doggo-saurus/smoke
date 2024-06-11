@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@types/object-hash": "^3.0.4",
+    "@types/showdown": "^2.0.6",
     "typescript": "^5.0.2",
     "vite": "^4.4.5"
   },
@@ -21,6 +22,7 @@
     "@types/selectize": "^0.12.35",
     "object-hash": "^3.0.0",
     "pathkit-wasm": "^1.0.0",
+    "showdown": "^2.1.0",
     "simplify-js": "^1.2.4",
     "tom-select": "^2.2.2"
   }
