@@ -452,6 +452,15 @@ li>p {
     padding: 2px;
 }
 
+#settings-ui {
+    height: 100%;
+    scrollbar-width: thin;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    scrollbar-gutter: stable both-edges;
+    padding-right: 8px;
+}
+
 #importTable td {
     text-align: center;
 }
