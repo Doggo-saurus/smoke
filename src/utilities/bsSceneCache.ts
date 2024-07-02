@@ -94,6 +94,7 @@ class BSCache
     themeHandler?: () => void;
     roomHandler?: () => void;
     fogHandler?: () => void;
+    throttledProcessData;
 
     constructor(caches: string[])
     {
@@ -141,6 +142,8 @@ class BSCache
         this.previousFowColor = "";
         this.workers = [];
         this.workersSetup = false;
+        
+        this.throttledProcessData = Utilities.ThrottleWithTrailing(OnSceneDataChange, 500);
     }
 
     public async RefreshCache()
@@ -558,7 +561,8 @@ class BSCache
         {
             SMOKEMAIN.UpdatePlayerVisionList();
         }
-        await OnSceneDataChange();
+        //await OnSceneDataChange();
+        this.throttledProcessData();
     }
 
     public async OnSceneLocalChange(_items: Item[])
