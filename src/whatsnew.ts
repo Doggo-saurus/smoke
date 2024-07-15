@@ -28,6 +28,10 @@ const needHelpMessage = `
 
 const whatsNewMessage = `
     <div id="newsContainer">
+        <h1>Smoke & Spectre! 7/15</h1>
+        Quick Update.
+        </br> A user mentioned with lots of tokens on a map, the visual indicator for the owner of a token (the colored ring) could get quite busy/jarring. And.. well they were right.
+        </br> It's now opt-in, there's a checkbox in Settings.
         <h1>Smoke & Spectre! 6/25</h1>
         Small bugfix for narrower screens. The scrollbar was disabled on the Settings Menu, making it so you couldn't scroll down to see the import options.
         </br>

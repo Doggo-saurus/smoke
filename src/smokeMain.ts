@@ -50,6 +50,7 @@ export class SmokeMain
     // Settings
     public persistenceCheckbox?: HTMLInputElement;
     public autodetectCheckbox?: HTMLInputElement;
+    public toggleOwnerLines?: HTMLInputElement;
     public fowCheckbox?: HTMLInputElement;
     public doorCheckbox?: HTMLInputElement;
     public fowColor?: HTMLInputElement;
@@ -149,6 +150,7 @@ export class SmokeMain
 
         this.persistenceCheckbox = document.getElementById("persistence_checkbox") as HTMLInputElement;
         this.autodetectCheckbox = document.getElementById("autodetect_checkbox") as HTMLInputElement;
+        this.toggleOwnerLines = document.getElementById("toggle_ownerlines") as HTMLInputElement;
         this.fowCheckbox = document.getElementById("fow_checkbox") as HTMLInputElement;
         this.doorCheckbox = document.getElementById("door_checkbox") as HTMLInputElement;
         this.fowColor = document.getElementById("fow_color") as HTMLInputElement;
@@ -263,6 +265,7 @@ export class SmokeMain
 
             if (this.visionCheckbox) this.visionCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/visionEnabled`] == true;
             if (this.autodetectCheckbox) this.autodetectCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/autodetectEnabled`] == true;
+            if (this.toggleOwnerLines) this.toggleOwnerLines.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toggleOwnerLines`] == true;
             if (this.persistenceCheckbox) this.persistenceCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/persistenceEnabled`] == true;
             if (this.fowCheckbox) this.fowCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/fowEnabled`] == true;
             if (this.doorCheckbox) this.doorCheckbox.checked = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/playerDoors`] == true;
@@ -453,7 +456,7 @@ export class SmokeMain
     }
 }
 
-export const SMOKEMAIN = new SmokeMain("2.71");
+export const SMOKEMAIN = new SmokeMain("2.72");
 OBR.onReady(async () =>
 {
     // Startup Handler code for delayed Scene Readiness

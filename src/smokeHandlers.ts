@@ -144,6 +144,15 @@ export function SetupInputHandlers()
         await OBR.scene.setMetadata({ [`${Constants.EXTENSIONID}/persistenceEnabled`]: target.checked });
     };
 
+    // Toggles the colored ownership lines
+    SMOKEMAIN.toggleOwnerLines!.onclick = async (event: MouseEvent) =>
+        {
+            if (!event || !event.target) return;
+            const target = event.target as HTMLInputElement;
+    
+            await OBR.scene.setMetadata({ [`${Constants.EXTENSIONID}/toggleOwnerLines`]: target.checked });
+        };
+
     // Toggles the auto-detect maps option
     SMOKEMAIN.autodetectCheckbox!.onclick = async (event: MouseEvent) =>
     {

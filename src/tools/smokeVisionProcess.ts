@@ -432,10 +432,12 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
 
                 // Get Color for Players
                 const owner = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/USER-${token.createdUserId}`] as Player;
+                const showOwnerLines = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toggleOwnerLines`] === true;
+                
                 if (owner && BSCACHE.playerRole === "GM" && !isTorch(token))
                 {
                     // Add indicator rings intended for the GM
-                    if (owner.role !== "GM")
+                    if (owner.role !== "GM" && showOwnerLines)
                     {
                         const playerRing = buildShape().strokeColor(owner.color).fillOpacity(0)
                             .position({ x: token.position.x, y: token.position.y }).width(visionRange * 2)
