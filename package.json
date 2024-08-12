@@ -20,6 +20,7 @@
     "@owlbear-rodeo/sdk": "^2.0.0",
     "@selectize/selectize": "^0.15.2",
     "@types/selectize": "^0.12.35",
+    "npm": "^10.8.2",
     "object-hash": "^3.0.0",
     "pathkit-wasm": "^1.0.0",
     "showdown": "^2.1.0",

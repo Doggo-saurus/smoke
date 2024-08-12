@@ -65,14 +65,7 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
     let invalidateCache = false;
     let TOKENSVIEWABLE: Item[] = [];
 
-    if (backgroundImage === undefined && backgroundBorder === undefined)
-    {
-        BSCACHE.playerShadowCache.invalidate();
-        BSCACHE.busy = false;
-        await OBR.action.setBadgeText(undefined);
-        return;
-    }
-    else if (autodetectEnabled)
+    if (autodetectEnabled)
     {
         // draw a big box around all the maps
         const maps: Image[] = BSCACHE.sceneItems.filter((item) => item.layer === "MAP" && isImage(item)) as Image[];
@@ -138,6 +131,13 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
         mapSize = [mapbox[2] - mapbox[0], mapbox[3] - mapbox[1]];
         mapScale = [1, 1];
         [width, height] = mapSize;
+    }
+    else if (backgroundImage === undefined && backgroundBorder === undefined)
+    {
+        BSCACHE.playerShadowCache.invalidate();
+        BSCACHE.busy = false;
+        await OBR.action.setBadgeText(undefined);
+        return;
     }
     else
     {
@@ -433,7 +433,7 @@ export async function OnSceneDataChange(forceUpdate?: boolean)
                 // Get Color for Players
                 const owner = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/USER-${token.createdUserId}`] as Player;
                 const showOwnerLines = BSCACHE.sceneMetadata[`${Constants.EXTENSIONID}/toggleOwnerLines`] === true;
-                
+
                 if (owner && BSCACHE.playerRole === "GM" && !isTorch(token))
                 {
                     // Add indicator rings intended for the GM
